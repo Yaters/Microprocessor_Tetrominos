@@ -45,7 +45,6 @@ DAC_HandleTypeDef hdac1;
 DMA_HandleTypeDef hdma_dac1_ch1;
 
 TIM_HandleTypeDef htim2;
-TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 
 /* USER CODE BEGIN PV */
@@ -66,7 +65,6 @@ static void MX_GPIO_Init(void);
 static void MX_DAC1_Init(void);
 static void MX_DMA_Init(void);
 static void MX_TIM4_Init(void);
-static void MX_TIM3_Init(void);
 static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim);
@@ -80,27 +78,27 @@ void init_buffer() {
   // Allocate buffers
   // Continuous memory alloc
   uint8_t* tmp_buffer  = (uint8_t*) malloc(sizeof(uint8_t) * 800 * 449);
-  uint8_t* tmp2_buffer = (uint8_t*) malloc(sizeof(uint8_t) * 800 * 449);
+  //uint8_t* tmp2_buffer = (uint8_t*) malloc(sizeof(uint8_t) * 800 * 449);
 
   frame_buffer = (uint8_t**) malloc(sizeof(uint8_t*) * 449);
-  true_buffer  = (uint8_t**) malloc(sizeof(uint8_t*) * 449);
+  //true_buffer  = (uint8_t**) malloc(sizeof(uint8_t*) * 449);
   for(int i = 0; i < 449; i++) {
 	  // Points to place in continuous location
 	  frame_buffer[i] = tmp_buffer  + i*800;
-	  true_buffer[i]  = tmp2_buffer + i*800;
+	  //true_buffer[i]  = tmp2_buffer + i*800;
   }
 
 
   // Fill them with data, start with increasing grayscale (and decreasing for back)
   for(int i = 0; i < 449; i++) {
 	  for(int j = 0; j < 800; j++) {
-		  if (j >= horiz_size || i >= vert_size) {
-			  frame_buffer[i][j] = (uint8_t) 0;
-			  true_buffer[i][j] = (uint8_t) 0;
-		  } else {
-			  frame_buffer[i][j] = (uint8_t) j;
-			  true_buffer[i][j] = (uint8_t) j;
-		  }
+		  // Back porch Vertical || Front Porch Vertical
+		  if (i < 60 || i >= 410) frame_buffer[i][j] = (uint8_t) 0;
+		  // Back porch Horizontal || Front Porch Horizontal
+		  else if (j < 48 || j >= 688) frame_buffer[i][j] = (uint8_t) 0;
+		  // Color based on x pos
+		  else frame_buffer[i][j] = (uint8_t) j;
+
 
 	  }
   }
@@ -143,22 +141,21 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_DMA_Init();
   MX_DAC1_Init();
-
+  MX_DMA_Init();
   MX_TIM4_Init();
-  MX_TIM3_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   // Fill the frame buffer
   init_buffer();
-  HAL_GPIO_WritePin(Horiz_Synch_GPIO_Port, Horiz_Synch_Pin, GPIO_PIN_SET);
-  HAL_GPIO_WritePin(Vert_Synch_GPIO_Port, Vert_Synch_Pin, GPIO_PIN_SET);
+  //HAL_GPIO_WritePin(Horiz_Synch_GPIO_Port, Horiz_Synch_Pin, GPIO_PIN_SET);
+  //HAL_GPIO_WritePin(Vert_Synch_GPIO_Port, Vert_Synch_Pin, GPIO_PIN_SET);
+  HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);	// start slave first.
   if (HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *) frame_buffer[0], 800*449, DAC_ALIGN_8B_R) != HAL_OK) {
 	  Error_Handler();
   }
-  HAL_TIM_Base_Start(&htim2);	// start slave first.
-  HAL_TIM_Base_Start(&htim3);	// start slave first.
+
+  //HAL_TIM_Base_Start(&htim3);	// start slave first.
   HAL_TIM_Base_Start(&htim4);	// start master timer.
   /* USER CODE END 2 */
 
@@ -276,6 +273,7 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 0 */
 
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_SlaveConfigTypeDef sSlaveConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
   TIM_OC_InitTypeDef sConfigOC = {0};
@@ -284,12 +282,17 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 15;
+  htim2.Init.Prescaler = 0;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 50;
+  htim2.Init.Period = 799;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
   {
     Error_Handler();
   }
@@ -310,8 +313,8 @@ static void MX_TIM2_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 44;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.Pulse = 704;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_LOW;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
   {
@@ -321,67 +324,6 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 2 */
   HAL_TIM_MspPostInit(&htim2);
-
-}
-
-/**
-  * @brief TIM3 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_TIM3_Init(void)
-{
-
-  /* USER CODE BEGIN TIM3_Init 0 */
-
-  /* USER CODE END TIM3_Init 0 */
-
-  TIM_SlaveConfigTypeDef sSlaveConfig = {0};
-  TIM_MasterConfigTypeDef sMasterConfig = {0};
-  TIM_OC_InitTypeDef sConfigOC = {0};
-
-  /* USER CODE BEGIN TIM3_Init 1 */
-
-  /* USER CODE END TIM3_Init 1 */
-  htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 15;
-  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 50;
-  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  if (HAL_TIM_PWM_Init(&htim3) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sSlaveConfig.SlaveMode = TIM_SLAVEMODE_TRIGGER;
-  sSlaveConfig.InputTrigger = TIM_TS_ITR3;
-  if (HAL_TIM_SlaveConfigSynchro(&htim3, &sSlaveConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 2;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-  if (HAL_TIM_PWM_ConfigChannel(&htim3, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  __HAL_TIM_DISABLE_OCxPRELOAD(&htim3, TIM_CHANNEL_1);
-  /* USER CODE BEGIN TIM3_Init 2 */
-
-  /* USER CODE END TIM3_Init 2 */
-  HAL_TIM_MspPostInit(&htim3);
 
 }
 
@@ -406,7 +348,7 @@ static void MX_TIM4_Init(void)
   htim4.Instance = TIM4;
   htim4.Init.Prescaler = 0;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 3;
+  htim4.Init.Period = 2;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
@@ -475,7 +417,7 @@ static void MX_GPIO_Init(void)
 /* USER CODE BEGIN 4 */
 
 //NOTE: This will not work  once the resolution is changed
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+//void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 //	if (htim->Instance == TIM3) {
 //		horiz_count = (horiz_count + 1) % 50;
 //
@@ -526,7 +468,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 //			Vert_Synch_GPIO_Port->BSRR = (uint32_t)Vert_Synch_Pin;
 //		}
 //	}
-}
+//}
 /* USER CODE END 4 */
 
 /**
