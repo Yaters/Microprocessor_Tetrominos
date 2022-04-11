@@ -1,0 +1,30 @@
+# CMake generation dependency list for this directory.
+C:/Program Files/CMake/share/cmake-3.17/Modules/CMakeCInformation.cmake
+C:/Program Files/CMake/share/cmake-3.17/Modules/CMakeCXXInformation.cmake
+C:/Program Files/CMake/share/cmake-3.17/Modules/CMakeCommonLanguageInclude.cmake
+C:/Program Files/CMake/share/cmake-3.17/Modules/CMakeGenericSystem.cmake
+C:/Program Files/CMake/share/cmake-3.17/Modules/CMakeInitializeConfigs.cmake
+C:/Program Files/CMake/share/cmake-3.17/Modules/CMakeLanguageInformation.cmake
+C:/Program Files/CMake/share/cmake-3.17/Modules/CMakeRCInformation.cmake
+C:/Program Files/CMake/share/cmake-3.17/Modules/CMakeSystemSpecificInformation.cmake
+C:/Program Files/CMake/share/cmake-3.17/Modules/CMakeSystemSpecificInitialize.cmake
+C:/Program Files/CMake/share/cmake-3.17/Modules/CPack.cmake
+C:/Program Files/CMake/share/cmake-3.17/Modules/CPackComponent.cmake
+C:/Program Files/CMake/share/cmake-3.17/Modules/CTest.cmake
+C:/Program Files/CMake/share/cmake-3.17/Modules/CTestTargets.cmake
+C:/Program Files/CMake/share/cmake-3.17/Modules/CTestUseLaunchers.cmake
+C:/Program Files/CMake/share/cmake-3.17/Modules/Compiler/CMakeCommonCompilerMacros.cmake
+C:/Program Files/CMake/share/cmake-3.17/Modules/Compiler/MSVC-C.cmake
+C:/Program Files/CMake/share/cmake-3.17/Modules/Compiler/MSVC-CXX.cmake
+C:/Program Files/CMake/share/cmake-3.17/Modules/DartConfiguration.tcl.in
+C:/Program Files/CMake/share/cmake-3.17/Modules/Platform/Windows-MSVC-C.cmake
+C:/Program Files/CMake/share/cmake-3.17/Modules/Platform/Windows-MSVC-CXX.cmake
+C:/Program Files/CMake/share/cmake-3.17/Modules/Platform/Windows-MSVC.cmake
+C:/Program Files/CMake/share/cmake-3.17/Modules/Platform/Windows.cmake
+C:/Program Files/CMake/share/cmake-3.17/Modules/Platform/WindowsPaths.cmake
+C:/Program Files/CMake/share/cmake-3.17/Templates/CPackConfig.cmake.in
+D:/(programmingProjects)/final_project_444/game_logic/CMakeLists.txt
+D:/(programmingProjects)/final_project_444/game_logic/build/CMakeFiles/3.17.2/CMakeCCompiler.cmake
+D:/(programmingProjects)/final_project_444/game_logic/build/CMakeFiles/3.17.2/CMakeCXXCompiler.cmake
+D:/(programmingProjects)/final_project_444/game_logic/build/CMakeFiles/3.17.2/CMakeRCCompiler.cmake
+D:/(programmingProjects)/final_project_444/game_logic/build/CMakeFiles/3.17.2/CMakeSystem.cmake

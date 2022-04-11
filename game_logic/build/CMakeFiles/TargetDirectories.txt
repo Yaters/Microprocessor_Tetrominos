@@ -1,0 +1,9 @@
+D:/(programmingProjects)/final_project_444/game_logic/build/CMakeFiles/Tetris_Game_Logic.dir
+D:/(programmingProjects)/final_project_444/game_logic/build/CMakeFiles/NightlyMemoryCheck.dir
+D:/(programmingProjects)/final_project_444/game_logic/build/CMakeFiles/Experimental.dir
+D:/(programmingProjects)/final_project_444/game_logic/build/CMakeFiles/Continuous.dir
+D:/(programmingProjects)/final_project_444/game_logic/build/CMakeFiles/Nightly.dir
+D:/(programmingProjects)/final_project_444/game_logic/build/CMakeFiles/PACKAGE.dir
+D:/(programmingProjects)/final_project_444/game_logic/build/CMakeFiles/RUN_TESTS.dir
+D:/(programmingProjects)/final_project_444/game_logic/build/CMakeFiles/ALL_BUILD.dir
+D:/(programmingProjects)/final_project_444/game_logic/build/CMakeFiles/ZERO_CHECK.dir
