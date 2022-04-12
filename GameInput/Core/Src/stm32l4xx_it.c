@@ -58,8 +58,6 @@
 extern DMA_HandleTypeDef hdma_dac1_ch2;
 extern DAC_HandleTypeDef hdac1;
 extern UART_HandleTypeDef huart1;
-extern TIM_HandleTypeDef htim6;
-
 /* USER CODE BEGIN EV */
 
 /* USER CODE END EV */
@@ -189,7 +187,7 @@ void SysTick_Handler(void)
   /* USER CODE BEGIN SysTick_IRQn 0 */
 
   /* USER CODE END SysTick_IRQn 0 */
-
+  HAL_IncTick();
   /* USER CODE BEGIN SysTick_IRQn 1 */
 
   /* USER CODE END SysTick_IRQn 1 */
@@ -238,7 +236,6 @@ void TIM6_DAC_IRQHandler(void)
   /* USER CODE BEGIN TIM6_DAC_IRQn 0 */
 
   /* USER CODE END TIM6_DAC_IRQn 0 */
-  HAL_TIM_IRQHandler(&htim6);
   HAL_DAC_IRQHandler(&hdac1);
   /* USER CODE BEGIN TIM6_DAC_IRQn 1 */
 
