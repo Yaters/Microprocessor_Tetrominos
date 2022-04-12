@@ -44,6 +44,7 @@ typedef enum {
  DAC_HandleTypeDef hdac1;
 DMA_HandleTypeDef hdma_dac1_ch2;
 
+TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim5;
 
 UART_HandleTypeDef huart1;
@@ -59,6 +60,7 @@ static void MX_DMA_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_DAC1_Init(void);
 static void MX_TIM5_Init(void);
+static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -161,11 +163,21 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 // Sound stuff
 
 uint16_t *wave_data = (uint16_t*) _actetristhemequiet;
-uint32_t data_size = 101600 /2;
+uint32_t data_size = 25400;
 
 void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hdac) {
 	// Do we reach here?
 	hello_world();
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim) {
+	static int offset = 0;
+	if (htim == &htim3) {
+		offset = (offset + 1) % 4;
+		HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_2);
+		HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, (uint16_t*) (wave_data + offset*data_size), data_size,
+					DAC_ALIGN_12B_R);
+	}
 }
 /* USER CODE END 0 */
 
@@ -201,10 +213,12 @@ int main(void)
   MX_USART1_UART_Init();
   MX_DAC1_Init();
   MX_TIM5_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
 	HAL_UART_Receive_IT(&huart1, (uint8_t*) in_buf, 1);
 	hello_world();
 	HAL_TIM_Base_Start(&htim5);
+	HAL_TIM_Base_Start_IT(&htim3);
 	HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, (uint16_t*) wave_data, data_size,
 			DAC_ALIGN_12B_R);
 
@@ -311,6 +325,51 @@ static void MX_DAC1_Init(void)
   /* USER CODE BEGIN DAC1_Init 2 */
 
   /* USER CODE END DAC1_Init 2 */
+
+}
+
+/**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 9999;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 25400;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
 
 }
 
