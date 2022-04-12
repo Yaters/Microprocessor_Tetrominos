@@ -31,8 +31,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define horiz_size 640
-#define vert_size 350
+#define horiz_size 150
+#define vert_size 125
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -44,16 +44,13 @@
 DAC_HandleTypeDef hdac1;
 DMA_HandleTypeDef hdma_dac1_ch1;
 
+TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim4;
 
 /* USER CODE BEGIN PV */
 
-// First function call will iterate it
-uint16_t horiz_count = -1;
-uint16_t vert_count = 0;
-// horiz_size(640) + porch(160) = 800
-// vert_size(350) + porch(99) =  449
+int vert_count = -1;
 uint8_t** frame_buffer;
 uint8_t** true_buffer;
 
@@ -66,6 +63,7 @@ static void MX_DAC1_Init(void);
 static void MX_DMA_Init(void);
 static void MX_TIM4_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_TIM1_Init(void);
 /* USER CODE BEGIN PFP */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim);
 /* USER CODE END PFP */
@@ -77,27 +75,22 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim);
 void init_buffer() {
   // Allocate buffers
   // Continuous memory alloc
-  uint8_t* tmp_buffer  = (uint8_t*) malloc(sizeof(uint8_t) * 800 * 449);
+  uint8_t* tmp_buffer  = (uint8_t*) malloc(sizeof(uint8_t) * horiz_size * vert_size);
   //uint8_t* tmp2_buffer = (uint8_t*) malloc(sizeof(uint8_t) * 800 * 449);
-
-  frame_buffer = (uint8_t**) malloc(sizeof(uint8_t*) * 449);
+  frame_buffer = (uint8_t**) malloc(sizeof(uint8_t*) * vert_size);
   //true_buffer  = (uint8_t**) malloc(sizeof(uint8_t*) * 449);
-  for(int i = 0; i < 449; i++) {
-	  // Points to place in continuous location
-	  frame_buffer[i] = tmp_buffer  + i*800;
-	  //true_buffer[i]  = tmp2_buffer + i*800;
-  }
-
 
   // Fill them with data, start with increasing grayscale (and decreasing for back)
-  for(int i = 0; i < 449; i++) {
-	  for(int j = 0; j < 800; j++) {
+  for(int i = 0; i < vert_size; i++) {
+	  // Point to place in continuous mem location
+	  frame_buffer[i] = tmp_buffer  + i*horiz_size;
+	  for(int j = 0; j < horiz_size; j++) {
 		  // Back porch Vertical || Front Porch Vertical
-		  if (i < 60 || i >= 410) frame_buffer[i][j] = (uint8_t) 0;
+		  if (i < 21 || i >= 111) frame_buffer[i][j] = (uint8_t) 0;
 		  // Back porch Horizontal || Front Porch Horizontal
-		  else if (j < 48 || j >= 688) frame_buffer[i][j] = (uint8_t) 0;
+		  else if (j < 9 || j >= 129) frame_buffer[i][j] = (uint8_t) 0;
 		  // Color based on x pos
-		  else frame_buffer[i][j] = (uint8_t) j;
+		  else frame_buffer[i][j] = (uint8_t) (j*5);
 
 
 	  }
@@ -141,21 +134,26 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_DAC1_Init();
   MX_DMA_Init();
+  MX_DAC1_Init();
+
   MX_TIM4_Init();
   MX_TIM2_Init();
+  MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
   // Fill the frame buffer
   init_buffer();
-  //HAL_GPIO_WritePin(Horiz_Synch_GPIO_Port, Horiz_Synch_Pin, GPIO_PIN_SET);
-  //HAL_GPIO_WritePin(Vert_Synch_GPIO_Port, Vert_Synch_Pin, GPIO_PIN_SET);
+  HAL_TIM_Base_Start_IT(&htim1);	// start slave first.
+  HAL_Delay(100);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);	// start slave first.
-  if (HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *) frame_buffer[0], 800*449, DAC_ALIGN_8B_R) != HAL_OK) {
+  HAL_Delay(100);
+  if (HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *) frame_buffer[0], horiz_size*vert_size, DAC_ALIGN_8B_R) != HAL_OK) {
 	  Error_Handler();
   }
 
   //HAL_TIM_Base_Start(&htim3);	// start slave first.
+
+
   HAL_TIM_Base_Start(&htim4);	// start master timer.
   /* USER CODE END 2 */
 
@@ -262,6 +260,55 @@ static void MX_DAC1_Init(void)
 }
 
 /**
+  * @brief TIM1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM1_Init(void)
+{
+
+  /* USER CODE BEGIN TIM1_Init 0 */
+
+  /* USER CODE END TIM1_Init 0 */
+
+  TIM_SlaveConfigTypeDef sSlaveConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM1_Init 1 */
+
+  /* USER CODE END TIM1_Init 1 */
+  htim1.Instance = TIM1;
+  htim1.Init.Prescaler = 0;
+  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim1.Init.Period = 149;
+  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim1.Init.RepetitionCounter = 0;
+  htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sSlaveConfig.SlaveMode = TIM_SLAVEMODE_TRIGGER;
+  sSlaveConfig.InputTrigger = TIM_TS_ITR3;
+  if (HAL_TIM_SlaveConfigSynchro(&htim1, &sSlaveConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  sMasterConfig.MasterOutputTrigger2 = TIM_TRGO2_UPDATE;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_ENABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM1_Init 2 */
+  TIM1->SMCR = TIM_TS_ITR3 | TIM_SMCR_SMS_0 | TIM_SMCR_SMS_1 | TIM_SMCR_SMS_2;
+  //TIM1->DIER = TIM_DIER_UIE;      // interrupt on update event (timer overflow)
+  /* USER CODE END TIM1_Init 2 */
+
+}
+
+/**
   * @brief TIM2 Initialization Function
   * @param None
   * @retval None
@@ -273,7 +320,6 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 0 */
 
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_SlaveConfigTypeDef sSlaveConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
   TIM_OC_InitTypeDef sConfigOC = {0};
@@ -284,15 +330,10 @@ static void MX_TIM2_Init(void)
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 0;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 799;
+  htim2.Init.Period = 149;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
   {
     Error_Handler();
   }
@@ -306,22 +347,24 @@ static void MX_TIM2_Init(void)
   {
     Error_Handler();
   }
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
   {
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 704;
-  sConfigOC.OCPolarity = TIM_OCPOLARITY_LOW;
+  sConfigOC.Pulse = 132;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
   {
     Error_Handler();
   }
   /* USER CODE BEGIN TIM2_Init 2 */
-
+  // trigger selection TS=001 ITR1 = TIM2, slave mode SMS=0111 external clock mode 1
+  TIM2->SMCR = TIM_TS_ITR3 | TIM_SMCR_SMS_0 | TIM_SMCR_SMS_1 | TIM_SMCR_SMS_2;
+  //TIM2->DIER = TIM_DIER_UIE;      // interrupt on update event (timer overflow)
   /* USER CODE END TIM2_Init 2 */
   HAL_TIM_MspPostInit(&htim2);
 
@@ -348,7 +391,7 @@ static void MX_TIM4_Init(void)
   htim4.Instance = TIM4;
   htim4.Init.Prescaler = 0;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 2;
+  htim4.Init.Period = 60;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
@@ -361,7 +404,7 @@ static void MX_TIM4_Init(void)
     Error_Handler();
   }
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_ENABLE;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim4, &sMasterConfig) != HAL_OK)
   {
     Error_Handler();
@@ -416,59 +459,20 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN 4 */
 
-//NOTE: This will not work  once the resolution is changed
-//void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
-//	if (htim->Instance == TIM3) {
-//		horiz_count = (horiz_count + 1) % 50;
-//
-//		//Horizontal Synch - (in 16 pixel cycles) @ 41 for 6 cycles
-//		if(horiz_count % 2 == 0) {
-//			// Skip API, write directly to pin no checks
-//			Horiz_Synch_GPIO_Port->BRR = (uint32_t)Horiz_Synch_Pin;
-//		} else {
-//			//HAL_GPIO_WritePin(Horiz_Synch_GPIO_Port, Horiz_Synch_Pin, GPIO_PIN_SET);
-//			Horiz_Synch_GPIO_Port->BSRR = (uint32_t)Horiz_Synch_Pin;
-//		}
-//	} else if (htim->Instance == TIM2) {
-//		vert_count = (vert_count + 1) % 449;
-//		// Vertical Synch
-//		if(vert_count >= 387 && vert_count < 389) {
-//			//HAL_GPIO_WritePin(Vert_Synch_GPIO_Port, Vert_Synch_Pin, GPIO_PIN_RESET);
-//			Vert_Synch_GPIO_Port->BRR = (uint32_t)Vert_Synch_Pin;
-//		} else {
-//			//HAL_GPIO_WritePin(Vert_Synch_GPIO_Port, Vert_Synch_Pin, GPIO_PIN_SET);
-//			Vert_Synch_GPIO_Port->BSRR = (uint32_t)Vert_Synch_Pin;
-//		}
-//	}
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+	if (htim->Instance == TIM1) {
+	  vert_count = (vert_count + 1) % 125;
+	  if(vert_count >= 123) {
+		  HAL_GPIO_WritePin(Vert_Synch_GPIO_Port, Vert_Synch_Pin, GPIO_PIN_RESET);
+	  } else {
+		  HAL_GPIO_WritePin(Vert_Synch_GPIO_Port, Vert_Synch_Pin, GPIO_PIN_SET);
+	  }
+  }
+}
 
-//	if (htim->Instance == TIM3) {
-//		// Prescalar of 16 compared to pixel clock
-//		horiz_count = horiz_count + 1;
-//		if(horiz_count == 50) {
-//			horiz_count = 0;
-//			vert_count = (vert_count + 1) % 449;
-//		}
-//		//Horizontal Synch - (in 16 pixel cycles) @ 41 for 6 cycles
-//		if(horiz_count > 40 && horiz_count < 47) {
-//			//HAL_GPIO_WritePin(Horiz_Synch_GPIO_Port, Horiz_Synch_Pin, GPIO_PIN_RESET);
-//			// Skip API, write directly to pin no checks
-//			Horiz_Synch_GPIO_Port->BRR = (uint32_t)Horiz_Synch_Pin;
-//
-//		} else {
-//			//HAL_GPIO_WritePin(Horiz_Synch_GPIO_Port, Horiz_Synch_Pin, GPIO_PIN_SET);
-//			Horiz_Synch_GPIO_Port->BSRR = (uint32_t)Horiz_Synch_Pin;
-//		}
-//
-//		// Vertical Synch
-//		if(vert_count >= 387 && vert_count < 389) {
-//			//HAL_GPIO_WritePin(Vert_Synch_GPIO_Port, Vert_Synch_Pin, GPIO_PIN_RESET);
-//			Vert_Synch_GPIO_Port->BRR = (uint32_t)Vert_Synch_Pin;
-//		} else {
-//			//HAL_GPIO_WritePin(Vert_Synch_GPIO_Port, Vert_Synch_Pin, GPIO_PIN_SET);
-//			Vert_Synch_GPIO_Port->BSRR = (uint32_t)Vert_Synch_Pin;
-//		}
-//	}
-//}
+
+
 /* USER CODE END 4 */
 
 /**
