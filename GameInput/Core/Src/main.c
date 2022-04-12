@@ -71,10 +71,10 @@ static void MX_TIM3_Init(void);
 void togglePause();
 
 static const char empty[80] =
-		"                                                                               \n";
+		"                                                                              \r\n";
 
 char buf[80] =
-		"                                                                               \n";
+		"                                                                              \r\n";
 
 char in_buf[2] = "hi";
 
