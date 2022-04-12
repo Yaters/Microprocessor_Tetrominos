@@ -44,7 +44,7 @@ typedef enum {
  DAC_HandleTypeDef hdac1;
 DMA_HandleTypeDef hdma_dac1_ch2;
 
-TIM_HandleTypeDef htim8;
+TIM_HandleTypeDef htim5;
 
 UART_HandleTypeDef huart1;
 
@@ -58,7 +58,7 @@ static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_DAC1_Init(void);
-static void MX_TIM8_Init(void);
+static void MX_TIM5_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -161,8 +161,12 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 // Sound stuff
 
 uint16_t *wave_data = (uint16_t*) _actetristhemequiet;
-uint32_t data_size = 101600 / 4;
+uint32_t data_size = 101600 /2;
 
+void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hdac) {
+	// Do we reach here?
+	hello_world();
+}
 /* USER CODE END 0 */
 
 /**
@@ -196,11 +200,11 @@ int main(void)
   MX_DMA_Init();
   MX_USART1_UART_Init();
   MX_DAC1_Init();
-  MX_TIM8_Init();
+  MX_TIM5_Init();
   /* USER CODE BEGIN 2 */
 	HAL_UART_Receive_IT(&huart1, (uint8_t*) in_buf, 1);
 	hello_world();
-	HAL_TIM_Base_Start(&htim8);
+	HAL_TIM_Base_Start(&htim5);
 	HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, (uint16_t*) wave_data, data_size,
 			DAC_ALIGN_12B_R);
 
@@ -295,7 +299,7 @@ static void MX_DAC1_Init(void)
   /** DAC channel OUT2 config
   */
   sConfig.DAC_SampleAndHold = DAC_SAMPLEANDHOLD_DISABLE;
-  sConfig.DAC_Trigger = DAC_TRIGGER_T8_TRGO;
+  sConfig.DAC_Trigger = DAC_TRIGGER_T5_TRGO;
   sConfig.DAC_HighFrequency = DAC_HIGH_FREQUENCY_INTERFACE_MODE_DISABLE;
   sConfig.DAC_OutputBuffer = DAC_OUTPUTBUFFER_ENABLE;
   sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_DISABLE;
@@ -311,49 +315,47 @@ static void MX_DAC1_Init(void)
 }
 
 /**
-  * @brief TIM8 Initialization Function
+  * @brief TIM5 Initialization Function
   * @param None
   * @retval None
   */
-static void MX_TIM8_Init(void)
+static void MX_TIM5_Init(void)
 {
 
-  /* USER CODE BEGIN TIM8_Init 0 */
+  /* USER CODE BEGIN TIM5_Init 0 */
 
-  /* USER CODE END TIM8_Init 0 */
+  /* USER CODE END TIM5_Init 0 */
 
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
 
-  /* USER CODE BEGIN TIM8_Init 1 */
+  /* USER CODE BEGIN TIM5_Init 1 */
 
-  /* USER CODE END TIM8_Init 1 */
-  htim8.Instance = TIM8;
-  htim8.Init.Prescaler = 0;
-  htim8.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim8.Init.Period = 10000;
-  htim8.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim8.Init.RepetitionCounter = 0;
-  htim8.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim8) != HAL_OK)
+  /* USER CODE END TIM5_Init 1 */
+  htim5.Instance = TIM5;
+  htim5.Init.Prescaler = 0;
+  htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim5.Init.Period = 10000;
+  htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim5) != HAL_OK)
   {
     Error_Handler();
   }
   sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim8, &sClockSourceConfig) != HAL_OK)
+  if (HAL_TIM_ConfigClockSource(&htim5, &sClockSourceConfig) != HAL_OK)
   {
     Error_Handler();
   }
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
-  sMasterConfig.MasterOutputTrigger2 = TIM_TRGO2_RESET;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim8, &sMasterConfig) != HAL_OK)
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim5, &sMasterConfig) != HAL_OK)
   {
     Error_Handler();
   }
-  /* USER CODE BEGIN TIM8_Init 2 */
+  /* USER CODE BEGIN TIM5_Init 2 */
 
-  /* USER CODE END TIM8_Init 2 */
+  /* USER CODE END TIM5_Init 2 */
 
 }
 
