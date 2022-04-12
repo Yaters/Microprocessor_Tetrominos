@@ -21,7 +21,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "tetristhemequiet.c"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -65,6 +65,7 @@ static void MX_TIM8_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
 static const char empty[80] =
 		"                                                                               \n";
 
@@ -157,6 +158,11 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 	HAL_UART_Receive_IT(&huart1, (uint8_t*) in_buf, 1);
 }
 
+// Sound stuff
+
+uint16_t *wave_data = (uint16_t*) _actetristhemequiet;
+uint32_t data_size = 101600 / 4;
+
 /* USER CODE END 0 */
 
 /**
@@ -194,6 +200,9 @@ int main(void)
   /* USER CODE BEGIN 2 */
 	HAL_UART_Receive_IT(&huart1, (uint8_t*) in_buf, 1);
 	hello_world();
+	HAL_TIM_Base_Start(&htim8);
+	HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, (uint16_t*) wave_data, data_size,
+			DAC_ALIGN_12B_R);
 
   /* USER CODE END 2 */
 
@@ -218,7 +227,7 @@ void SystemClock_Config(void)
 
   /** Configure the main internal regulator output voltage
   */
-  if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1_BOOST) != HAL_OK)
+  if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1) != HAL_OK)
   {
     Error_Handler();
   }
@@ -233,7 +242,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_MSI;
   RCC_OscInitStruct.PLL.PLLM = 1;
-  RCC_OscInitStruct.PLL.PLLN = 60;
+  RCC_OscInitStruct.PLL.PLLN = 40;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
   RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
   RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
@@ -251,7 +260,7 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_3) != HAL_OK)
   {
     Error_Handler();
   }
