@@ -68,6 +68,8 @@ static void MX_TIM3_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+void togglePause();
+
 static const char empty[80] =
 		"                                                                               \n";
 
@@ -75,6 +77,8 @@ char buf[80] =
 		"                                                                               \n";
 
 char in_buf[2] = "hi";
+
+int paused = 0;
 
 void _print() {
 	HAL_UART_Transmit(&huart1, buf, 80, 0xFFFF);
@@ -153,7 +157,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 		print_gameInput(DOWN);
 		break;
 	case 32: // space
-		print_gameInput(TOGGLEPAUSE);
+		togglePause();
 	default:
 		break;
 	}
@@ -164,21 +168,47 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 
 uint16_t *wave_data = (uint16_t*) _actetristhemequiet;
 uint32_t data_size = 25400;
+int offset = 0;
 
-void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef* hdac) {
+void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef *hdac) {
 	// Do we reach here?
 	hello_world();
 }
 
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef* htim) {
-	static int offset = 0;
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	if (htim == &htim3) {
 		offset = (offset + 1) % 4;
 		HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_2);
-		HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, (uint16_t*) (wave_data + offset*data_size), data_size,
-					DAC_ALIGN_12B_R);
+		HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2,
+				(uint16_t*) (wave_data + offset * data_size), data_size,
+				DAC_ALIGN_12B_R);
 	}
 }
+
+void togglePause() {
+	print_gameInput(TOGGLEPAUSE);
+	if (paused == 0) {
+		HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_2);
+		HAL_TIM_Base_Stop(&htim5);
+		HAL_TIM_Base_Stop_IT(&htim3);
+		paused = 1;
+	} else {
+		HAL_TIM_Base_Start(&htim5);
+		HAL_TIM_Base_Start_IT(&htim3);
+		HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2,
+				(uint16_t*) (wave_data + offset * data_size), data_size,
+				DAC_ALIGN_12B_R);
+		paused = 0;
+	}
+
+}
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+	if (GPIO_Pin == myButton_Pin) {
+		togglePause();
+	}
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -220,7 +250,7 @@ int main(void)
 	HAL_TIM_Base_Start(&htim5);
 	HAL_TIM_Base_Start_IT(&htim3);
 	HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, (uint16_t*) wave_data, data_size,
-			DAC_ALIGN_12B_R);
+	DAC_ALIGN_12B_R);
 
   /* USER CODE END 2 */
 
@@ -490,10 +520,22 @@ static void MX_DMA_Init(void)
   */
 static void MX_GPIO_Init(void)
 {
+  GPIO_InitTypeDef GPIO_InitStruct = {0};
 
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
+
+  /*Configure GPIO pin : myButton_Pin */
+  GPIO_InitStruct.Pin = myButton_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(myButton_GPIO_Port, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
 }
 
