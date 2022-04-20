@@ -31,8 +31,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define horiz_size 150
-#define vert_size 125
+#define horiz_size 100
+#define vert_size 449
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -50,7 +50,7 @@ TIM_HandleTypeDef htim4;
 
 /* USER CODE BEGIN PV */
 
-int vert_count = -1;
+int vert_count = 0;
 uint8_t** frame_buffer;
 uint8_t** true_buffer;
 
@@ -76,39 +76,49 @@ void init_buffer() {
   // Allocate buffers
   // Continuous memory alloc
   uint8_t* tmp_buffer  = (uint8_t*) malloc(sizeof(uint8_t) * horiz_size * vert_size);
-  //uint8_t* tmp2_buffer = (uint8_t*) malloc(sizeof(uint8_t) * 800 * 449);
+  uint8_t* tmp2_buffer = (uint8_t*) malloc(sizeof(uint8_t) * horiz_size * vert_size);
   frame_buffer = (uint8_t**) malloc(sizeof(uint8_t*) * vert_size);
-  //true_buffer  = (uint8_t**) malloc(sizeof(uint8_t*) * 449);
+  true_buffer  = (uint8_t**) malloc(sizeof(uint8_t*) * vert_size);
 
   // Fill them with data, start with increasing grayscale (and decreasing for back)
   for(int i = 0; i < vert_size; i++) {
 	  // Point to place in continuous mem location
 	  frame_buffer[i] = tmp_buffer  + i*horiz_size;
+	  true_buffer[i] = tmp2_buffer  + i*horiz_size;
 	  for(int j = 0; j < horiz_size; j++) {
-		  // Back porch Vertical || Front Porch Vertical
-		  if (i < 21 || i >= 111) frame_buffer[i][j] = (uint8_t) 0;
 		  // Back porch Horizontal || Front Porch Horizontal
-		  else if (j < 9 || j >= 129) frame_buffer[i][j] = (uint8_t) 0;
+//		  if (j < 6 || j >= 85) {
+		  if (j < 3 || j >= 82) {
+			  frame_buffer[i][j] = (uint8_t) 0;
+			  true_buffer[i][j] = (uint8_t) 0;
+		  }
+		  // Back porch Vertical || Front Porch Vertical
+		  else if (i < 60 || i >= 410) {
+			  true_buffer[i][j] = (uint8_t) 0;
+		  }
 		  // Color based on x pos
-		  else frame_buffer[i][j] = (uint8_t) (j*5);
+		  else {
+			  frame_buffer[i][j] = (uint8_t) (2.8*(i%44)+12*(j%10));
+			  true_buffer[i][j] = (uint8_t) (5.6*(i%22)+6*(j%20));
+		  }
 
 
 	  }
   }
 }
-void swap_buffer() {
-	// Swap pointers
-	uint8_t** tmp = true_buffer;
-	true_buffer = frame_buffer;
-	frame_buffer = tmp;
-
-	HAL_TIM_Base_Stop(&htim4);
-	HAL_Delay(20);
-	HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_1);
-	HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *) frame_buffer[0], horiz_size*vert_size, DAC_ALIGN_8B_R);
-	HAL_Delay(20);
-	HAL_TIM_Base_Start(&htim4);
-}
+//void swap_buffer() {
+//	// Swap pointers
+//	uint8_t** tmp = true_buffer;
+//	true_buffer = frame_buffer;
+//	frame_buffer = tmp;
+//
+////	HAL_TIM_Base_Stop(&htim4);
+////	HAL_Delay(20);
+////	HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_1);
+////	HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *) true_buffer[0], horiz_size*vert_size, DAC_ALIGN_8B_R);
+////	HAL_Delay(20);
+////	HAL_TIM_Base_Start(&htim4);
+//}
 /* USER CODE END 0 */
 
 /**
@@ -149,19 +159,19 @@ int main(void)
   // Fill the frame buffer
   init_buffer();
   HAL_TIM_Base_Start_IT(&htim1);	// start slave first.
-  HAL_Delay(20);
+  HAL_Delay(50);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);	// start slave first.
-  HAL_Delay(20);
+  HAL_Delay(50);
   HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *) frame_buffer[0], horiz_size*vert_size, DAC_ALIGN_8B_R);
-  HAL_Delay(20);
+  HAL_Delay(50);
   HAL_TIM_Base_Start(&htim4);	// start master timer.
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1){
-	//HAL_Delay(3000);
-	//swap_buffer();
+//	HAL_Delay(3000);
+//	swap_buffer();
 
     /* USER CODE END WHILE */
 
@@ -280,7 +290,7 @@ static void MX_TIM1_Init(void)
   htim1.Instance = TIM1;
   htim1.Init.Prescaler = 0;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 799;
+  htim1.Init.Period = 99;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -330,7 +340,7 @@ static void MX_TIM2_Init(void)
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 0;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 799;
+  htim2.Init.Period = 99;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -354,7 +364,7 @@ static void MX_TIM2_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 704;
+  sConfigOC.Pulse = 90;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
@@ -389,7 +399,7 @@ static void MX_TIM4_Init(void)
 
   /* USER CODE END TIM4_Init 1 */
   htim4.Instance = TIM4;
-  htim4.Init.Prescaler = 0;
+  htim4.Init.Prescaler = 7;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim4.Init.Period = 2;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -429,6 +439,9 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel1_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+  /* DMAMUX1_OVR_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMAMUX1_OVR_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMAMUX1_OVR_IRQn);
 
 }
 
@@ -462,13 +475,21 @@ static void MX_GPIO_Init(void)
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 	if (htim->Instance == TIM1) {
-	  vert_count = (vert_count + 1) % 449;
-	  if(vert_count >= 447) {
-		  HAL_GPIO_WritePin(Vert_Synch_GPIO_Port, Vert_Synch_Pin, GPIO_PIN_RESET);
-	  } else {
-		  HAL_GPIO_WritePin(Vert_Synch_GPIO_Port, Vert_Synch_Pin, GPIO_PIN_SET);
-	  }
-  }
+		vert_count = (vert_count + 1) % 449;
+		// Parts done so DMA length is in bounds
+
+		// Part 1 (top)
+//		if (vert_count >= 60 || vert_count < 410) {
+//			HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_1);
+//			HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *) true_buffer[vert_count - 60], horiz_size, DAC_ALIGN_8B_R);
+//		}
+
+		if(vert_count >= 447) {
+			HAL_GPIO_WritePin(Vert_Synch_GPIO_Port, Vert_Synch_Pin, GPIO_PIN_RESET);
+		} else {
+			HAL_GPIO_WritePin(Vert_Synch_GPIO_Port, Vert_Synch_Pin, GPIO_PIN_SET);
+		}
+	}
 }
 
 
