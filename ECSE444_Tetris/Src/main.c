@@ -97,12 +97,17 @@ void init_buffer() {
   }
 }
 void swap_buffer() {
-//	uint8_t** tmp = true_buffer;
-//	true_buffer = frame_buffer;
-//	frame_buffer = tmp;
-//	if (HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *) true_buffer[0], 800*449, DAC_ALIGN_8B_R) != HAL_OK) {
-//			  Error_Handler();
-//	}
+	// Swap pointers
+	uint8_t** tmp = true_buffer;
+	true_buffer = frame_buffer;
+	frame_buffer = tmp;
+
+	HAL_TIM_Base_Stop(&htim4);
+	HAL_Delay(20);
+	HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_1);
+	HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *) frame_buffer[0], horiz_size*vert_size, DAC_ALIGN_8B_R);
+	HAL_Delay(20);
+	HAL_TIM_Base_Start(&htim4);
 }
 /* USER CODE END 0 */
 
@@ -144,16 +149,11 @@ int main(void)
   // Fill the frame buffer
   init_buffer();
   HAL_TIM_Base_Start_IT(&htim1);	// start slave first.
-  HAL_Delay(100);
+  HAL_Delay(20);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);	// start slave first.
-  HAL_Delay(100);
-  if (HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *) frame_buffer[0], horiz_size*vert_size, DAC_ALIGN_8B_R) != HAL_OK) {
-	  Error_Handler();
-  }
-
-  //HAL_TIM_Base_Start(&htim3);	// start slave first.
-
-
+  HAL_Delay(20);
+  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *) frame_buffer[0], horiz_size*vert_size, DAC_ALIGN_8B_R);
+  HAL_Delay(20);
   HAL_TIM_Base_Start(&htim4);	// start master timer.
   /* USER CODE END 2 */
 
@@ -280,7 +280,7 @@ static void MX_TIM1_Init(void)
   htim1.Instance = TIM1;
   htim1.Init.Prescaler = 0;
   htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 149;
+  htim1.Init.Period = 799;
   htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim1.Init.RepetitionCounter = 0;
   htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -296,7 +296,7 @@ static void MX_TIM1_Init(void)
   }
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
   sMasterConfig.MasterOutputTrigger2 = TIM_TRGO2_UPDATE;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_ENABLE;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
   {
     Error_Handler();
@@ -330,7 +330,7 @@ static void MX_TIM2_Init(void)
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 0;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 149;
+  htim2.Init.Period = 799;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -354,7 +354,7 @@ static void MX_TIM2_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 132;
+  sConfigOC.Pulse = 704;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
@@ -391,7 +391,7 @@ static void MX_TIM4_Init(void)
   htim4.Instance = TIM4;
   htim4.Init.Prescaler = 0;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 60;
+  htim4.Init.Period = 2;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
@@ -462,8 +462,8 @@ static void MX_GPIO_Init(void)
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 	if (htim->Instance == TIM1) {
-	  vert_count = (vert_count + 1) % 125;
-	  if(vert_count >= 123) {
+	  vert_count = (vert_count + 1) % 449;
+	  if(vert_count >= 447) {
 		  HAL_GPIO_WritePin(Vert_Synch_GPIO_Port, Vert_Synch_Pin, GPIO_PIN_RESET);
 	  } else {
 		  HAL_GPIO_WritePin(Vert_Synch_GPIO_Port, Vert_Synch_Pin, GPIO_PIN_SET);
