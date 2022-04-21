@@ -53,6 +53,16 @@ char tetromino_current[] = {'\0', '\0', '\0', '\0',
                      '\0', '\0', '\0', '\0',
                      '\0', '\0', '\0', '\0'};
 
+// used to store the collision between the tetromino and the game board
+char tetromino_collision[] = {'\0', '\0', '\0', '\0',
+                        '\0', '\0', '\0', '\0',
+                        '\0', '\0', '\0', '\0',
+                        '\0', '\0', '\0', '\0'};
+
+// enums
+enum consoleState{Start, Playing, Paused};
+
+// structs
 typedef struct Game {
     char const * tetromino;
     char const * swapTetromino;
@@ -61,9 +71,10 @@ typedef struct Game {
     int x;
     int y;
     char board[BOARD_WIDTH * BOARD_HEIGHT];
+    enum consoleState state;
 }Game;
 
-// structs
+
 typedef struct Window {
     int width;
     int height;
@@ -76,6 +87,10 @@ typedef struct Window {
 }Window;
 
 // function prototypes
+extern void update_screen(Window* window);
+extern void refreshScreen(Window * window);
+extern void drawRect(Window* window, int x_start, int y_start, int width, int height, int scaling_h, int scaling_v, char* data);
+extern void drawRect_color(Window* window, int x_start, int y_start, int width, int height, int scaling_h, int scaling_v, char color);
 void tetris_initialize_game(Window * window);
 const char * tetris_get_next_tetromino();
 void tetris_update_current_tetromino(Window * window);
@@ -89,8 +104,13 @@ void tetris_finished_tetromino(Window * window);
 void tetris_detect_rowCompletion(Window * window);
 int tetris_validate_position(Window * window, int x_offset, int y_offset);
 
+/**
+ * @brief populate window game variable with a reset tetris game.
+ * 
+ * @param window window
+ */
 void tetris_initialize_game(Window * window) {
-    // create game board, with tetromino data
+    // fill game board with empty data
     for (int i = 0; i < BOARD_WIDTH * BOARD_HEIGHT; i++) {
         window->game.board[i] = EMPTY_BOARD_CHAR;
     }
@@ -99,16 +119,23 @@ void tetris_initialize_game(Window * window) {
     time_t t;
     srand((unsigned) time(&t));
     
+    // initialize game state (tetromino, rotation, next tetromino, x, y, game state)
     window->game.rotation = 0;
     window->game.tetromino = tetris_get_next_tetromino();
     window->game.nextTetromino = tetris_get_next_tetromino();
     window->game.x = 3;
     window->game.y = 0;
+    window->game.state = Start;
 
+    // initialize the current tetromino
     tetris_update_current_tetromino(window);
 }
 
-// generate random tetromino piece
+/**
+ * @brief generate random tetromino piece (select random number between 0 and 7)
+ * 
+ * @return const char* pointer to random tetromino piece
+ */
 const char * tetris_get_next_tetromino() {
     switch (rand() % 7) {
         case 0:
@@ -139,10 +166,17 @@ const char * tetris_get_next_tetromino() {
     
 }
 
+/**
+ * @brief Updates the tetromino piece used for collision/drawing purposes
+ * 
+ * @param window window
+ */
 void tetris_update_current_tetromino(Window * window) {
+    // update piece based on rotation state
     int index = 0, row, col;
     switch (window->game.rotation) {
         case 0:
+            // no rotation
             for (row = 0; row < 4; row++) {
                 for (col = 0; col < 4; col++) {
                     tetromino_current[4 * row + col] = window->game.tetromino[index];
@@ -151,6 +185,7 @@ void tetris_update_current_tetromino(Window * window) {
             }
         break;
         case 1:
+            // C 1; CC 3;
             for (col = 3; col >= 0; col--) {
                 for (row = 0; row < 4; row++) {
                     tetromino_current[4 * row + col] = window->game.tetromino[index];
@@ -159,6 +194,7 @@ void tetris_update_current_tetromino(Window * window) {
             }
         break;
         case 2:
+            // C 2; CC 2;
             for (row = 3; row >= 0; row--) {
                 for (col = 3; col >= 0; col--) {
                     tetromino_current[4 * row + col] = window->game.tetromino[index];
@@ -167,6 +203,7 @@ void tetris_update_current_tetromino(Window * window) {
             }
         break;
         case 3:
+            // C 3; CC 1;
             for (col = 0; col < 4; col++) {
                 for (row = 3; row >= 0; row--) {
                     tetromino_current[4 * row + col] = window->game.tetromino[index];
@@ -177,10 +214,20 @@ void tetris_update_current_tetromino(Window * window) {
     }
 }
 
+/**
+ * @brief Swap the tetromino pieces. NOT IMPLEMENTED
+ * 
+ * @param window window
+ */
 void tetris_swap_tetromino(Window * window) {
 
 }
 
+/**
+ * @brief Rotate the tetromino piece clockwise. Abort rotation if will cause collision
+ * 
+ * @param window window
+ */
 void tetris_rotate_C_tetromino(Window * window) {
     window->game.rotation = (window->game.rotation + 1) % 4;
     tetris_update_current_tetromino(window);
@@ -193,6 +240,11 @@ void tetris_rotate_C_tetromino(Window * window) {
     }
 }
 
+/**
+ * @brief Rotate the tetromino piece conter clockwise. Abort rotation if will cause collision
+ * 
+ * @param window window
+ */
 void tetris_rotate_CC_tetromino(Window * window) {
     window->game.rotation = (window->game.rotation + 3) % 4;
     tetris_update_current_tetromino(window);
@@ -205,6 +257,12 @@ void tetris_rotate_CC_tetromino(Window * window) {
     }
 }
 
+/**
+ * @brief Move the piece to the left. Abort if causes a collision
+ * 
+ * @param window 
+ * @return int whether the event completed successfully
+ */
 int tetris_move_left(Window * window) {
     if (!tetris_validate_position(window, -1, 0)) {
         window->game.x--;
@@ -213,6 +271,12 @@ int tetris_move_left(Window * window) {
     return 0;
 }
 
+/**
+ * @brief Move the piece to the right. Abort if causes a collision
+ * 
+ * @param window 
+ * @return int whether the event completed successfully
+ */
 int tetris_move_right(Window * window) {
     if (!tetris_validate_position(window, 1, 0)) {
         window->game.x++;
@@ -221,6 +285,12 @@ int tetris_move_right(Window * window) {
     return 0;
 }
 
+/**
+ * @brief Move the piece down. Tetromino piece position is finalized if collision occurs. Get next tetromino & update board accordingly.
+ * 
+ * @param window 
+ * @return int whether the event completed successfully
+ */
 int tetris_move_down(Window * window) {
     if (!tetris_validate_position(window, 0, 1)) {
         window->game.y++;
@@ -298,6 +368,11 @@ void tetris_finished_tetromino(Window * window) {
     tetris_update_current_tetromino(window);
 }
 
+/**
+ * @brief Detect full rows, and clears them out of the board
+ * 
+ * @param window window w/ game
+ */
 void tetris_detect_rowCompletion(Window * window) {
     // go over board & detect all lines that need to be cleared.
     int rowCompleted[BOARD_HEIGHT];
@@ -311,6 +386,29 @@ void tetris_detect_rowCompletion(Window * window) {
         }
     }
 
+    for (int i = 0; i < 4; i++) {
+        int anyRowFlag = 0;
+        // go over board from bottom to top & turn lines that need to be cleared on/off
+        for (int row = BOARD_HEIGHT - 1; row >= 0; row--) {
+            if (rowCompleted[row]) {
+                for (int col = 0; col < BOARD_WIDTH; col++) {
+                    window->game.board[BOARD_WIDTH * row + col] = (i%2) ? '1' : EMPTY_BOARD_CHAR;
+                }
+                anyRowFlag = 1;
+            }
+        }
+
+        if (!anyRowFlag) {
+            break;
+        }
+
+        drawRect(window, BOARD_X, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT, 1, 1, window->game.board);
+        // animation here hehe
+        refreshScreen(window);
+        // update screen
+        update_screen(window);
+    }
+
     // go over board from bottom to top & delete the lines that need to be cleared
     int row_currently_drawn = BOARD_HEIGHT - 1;
     for (int row = BOARD_HEIGHT - 1; row >= 0; row--) {
@@ -320,7 +418,6 @@ void tetris_detect_rowCompletion(Window * window) {
             }
             row_currently_drawn--;
         }
-
     }
     
     for (int row = row_currently_drawn; row >= 0; row--) {

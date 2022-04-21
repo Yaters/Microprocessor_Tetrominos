@@ -23,8 +23,10 @@
 
 // function prototypes
 int process_user_input(Window * window);
-void update_screen(Window* window);
-void update_game_state(Window* window, int event);
+extern void update_screen(Window* window);
+void game_playing(Window* window, int event);
+void game_paused(Window * window, int event);
+void game_start(Window * window, int event);
 void create_window(Window * window);
 void end_application(Window* window);
 

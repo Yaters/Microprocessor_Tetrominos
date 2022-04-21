@@ -16,11 +16,21 @@ int main(void) {
         // process button presses (update game state)
         int event = process_user_input(&window);
 
-
-
         if (event > 0) {
-            // update the game state, and draw to frame buffer
-            update_game_state(&window, event);
+            switch (window.game.state) {
+                case Start:
+                    game_start(&window, event);
+                break;
+                case Playing:
+                    // update the game state, and draw to frame buffer
+                    game_playing(&window, event);
+                break;
+                case Paused:
+                    game_paused(&window, event);
+                break;
+            }
+
+
             refreshScreen(&window);
             // update screen
             update_screen(&window);
@@ -39,16 +49,7 @@ int main(void) {
     getchar();    
 }
 
-char data[] = {'1','1','1','1','1','1','1','1','1','1',
-                '1','1','1','1','1','1','1','1','1','1',
-                '1','1','1','1','1','1','1','1','1','1',
-                '1','1','1','1','1','1','1','1','1','1',
-                '1','1','1','1','1','1','1','1','1','1',
-                '1','1','1','1','1','1','1','1','1','1',
-                '1','1','1','1','1','1','1','1','1','1',
-                '1','1','1','1','1','1','1','1','1','1',
-                '1','1','1','1','1','1','1','1','1','1',
-                '1','1','1','1','1','1','1','1','1','1',};
+
 int process_user_input(Window * window) {
     char c = getchar();
 
@@ -75,13 +76,23 @@ int process_user_input(Window * window) {
         case 'x':
             return 3;
         break;
+        // pause game
+        case 'r':
+            if (window->game.state == Playing) {
+                window->game.state = Paused;
+            } 
+            else {
+                window->game.state = Playing;
+            } 
+        break;
     }
 
+    // return a value not mapped to any event
     return 10;
 }
 
 // only used for testing & visual output on CMD
-void update_screen(Window * window) {
+extern void update_screen(Window * window) {
     system("cls");
     if (window->curBuff == 0) {
         for (int row = 0; row < FRAME_HEIGHT; row++) {
@@ -102,11 +113,13 @@ void update_screen(Window * window) {
 
 }
 
+// create window, as well as initializes tetris game
 void create_window(Window * window) {
     // initialize window
     window->width = IMAGE_WIDTH;
     window->height = IMAGE_HEIGHT;
 
+    // fill image buffers with default value
     for (int i = 0; i < FRAME_HEIGHT * FRAME_WIDTH; i++) {
         window->imgBuff1[i] = '.';
         window->imgBuff2[i] = '.';
@@ -114,10 +127,17 @@ void create_window(Window * window) {
     window->curBuff = 0;
     printf("window w: %d, h: %d\n", window->width, window->height);
 
+    // initialize tetris game board
     tetris_initialize_game(window);
 }
 
-void update_game_state(Window* window, int event) {
+/**
+ * @brief Use when the tetris game is playing. (state machine -> game)
+ * 
+ * @param window window that is being used
+ * @param event user input
+ */
+void game_playing(Window* window, int event) {
 
     switch (event) {
         // move left = 1
@@ -162,6 +182,27 @@ void update_game_state(Window* window, int event) {
 
 }
 
+/**
+ * @brief Use when the tetris game is paused.
+ * 
+ * @param window window that is being used
+ * @param event user input
+ */
+void game_paused(Window* window, int event) {
+    // draw game board
+    drawRect_color(window, 0, 0, window->width, window->height, 1, 1, '+');
+}
+
+/**
+ * @brief Use when the tetris game is paused.
+ * 
+ * @param window window that is being used
+ * @param event user input
+ */
+void game_start(Window* window, int event) {
+    // draw game board
+    drawRect_color(window, 0, 0, window->width, window->height, 1, 1, '!');
+}
 
 void end_application(Window* window) {
 
