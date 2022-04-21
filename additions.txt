@@ -1,0 +1,144 @@
+typedef enum {
+	DOWN, CW, CCW, LEFT, RIGHT, TOGGLEPAUSE
+} game_input_t;
+
+void togglePause();
+
+static const char empty[80] =
+		"                                                                               \n";
+
+char buf[80] =
+		"                                                                               \n";
+
+char in_buf[2] = "hi";
+
+int paused = 0;
+
+void _print() {
+	HAL_UART_Transmit(&huart1, buf, 80, 0xFFFF);
+}
+
+void clear() {
+	sprintf(buf, empty);
+//	_print();
+}
+
+void hello_world() {
+	sprintf(buf, "Hello, World!");
+	_print();
+}
+
+void print_gameInput(game_input_t input) {
+	// here is where we handle input. RIght now this is just an inefficient nested switchcase
+	clear();
+//	sprintf(buf, input);
+	switch (input) {
+	case LEFT:
+		sprintf(buf, "Input: Left");
+		break;
+	case RIGHT:
+		sprintf(buf, "Input: Right");
+		break;
+	case DOWN:
+		sprintf(buf, "Input: Down");
+		break;
+	case CW:
+		sprintf(buf, "Input: Clockwise");
+		break;
+	case CCW:
+		sprintf(buf, "Input: Counterclockwise");
+		break;
+	case TOGGLEPAUSE:
+		sprintf(buf, "Input: Toggle Pause/Resume");
+
+	}
+	_print();
+}
+
+// Callbacks
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+//	print_inbuf();
+	char c = ((huart)->Instance)->RDR;
+
+	switch (c) {
+	case 53: // 5 as in the key "5" (to test if working)
+		hello_world();
+		break;
+	case 97: // a
+		print_gameInput(LEFT);
+		break;
+	case 100: // d
+		print_gameInput(RIGHT);
+		break;
+	case 107: // l
+		print_gameInput(CCW);
+		break;
+	case 59: // semicolon
+		print_gameInput(CW);
+		break;
+	case 115: // s
+		print_gameInput(DOWN);
+		break;
+	case 32: // space
+		togglePause();
+	default:
+		break;
+	}
+	HAL_UART_Receive_IT(&huart1, (uint8_t*) in_buf, 1);
+}
+
+// Sound stuff
+
+uint16_t *wave_data = (uint16_t*) _actetristhemequiet;
+uint32_t data_size = 25400;
+int offset = 0;
+
+void HAL_DAC_ConvCpltCallbackCh1(DAC_HandleTypeDef *hdac) {
+	// Do we reach here?
+	hello_world();
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+	if (htim == &htim3) {
+		offset = (offset + 1) % 4;
+		HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_2);
+		HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2,
+				(uint16_t*) (wave_data + offset * data_size), data_size,
+				DAC_ALIGN_12B_R);
+	}
+}
+
+void togglePause() {
+	print_gameInput(TOGGLEPAUSE);
+	if (paused == 0) {
+		HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_2);
+		HAL_TIM_Base_Stop(&htim5);
+		HAL_TIM_Base_Stop_IT(&htim3);
+		paused = 1;
+	} else {
+		HAL_TIM_Base_Start(&htim5);
+		HAL_TIM_Base_Start_IT(&htim3);
+		HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2,
+				(uint16_t*) (wave_data + offset * data_size), data_size,
+				DAC_ALIGN_12B_R);
+		paused = 0;
+	}
+
+}
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+	if (GPIO_Pin == myButton_Pin) {
+		togglePause();
+	}
+}
+
+int main(void) {
+	// Outside of while loop
+	HAL_UART_Receive_IT(&huart1, (uint8_t*) in_buf, 1);
+	hello_world();
+	HAL_TIM_Base_Start(&htim8);
+	HAL_TIM_Base_Start_IT(&htim3);
+	HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2, (uint16_t*) wave_data, data_size,
+	DAC_ALIGN_12B_R);
+	// ...
