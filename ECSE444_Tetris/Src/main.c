@@ -22,6 +22,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include <stdlib.h>
+#include "fontlib.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -71,6 +72,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
+void clear_buffer() {
+	for (int i = 0; i < vert_size; i++) {
+		for (int j = 0; j < horiz_size; j++) {
+			frame_buffer[i][j] = 10;
+		}
+	}
+}
 // Fill buffers with testing stuff
 void init_buffer() {
   // Allocate buffers
@@ -98,27 +106,69 @@ void init_buffer() {
 		  }
 		  // Color based on x pos
 		  else {
+			  float y = 350-(i-60) - 175;
+			  float x = 4.48718*(j-3) - 175;
+			  float rad_head = x*x + y*y;
+			  float rad_eyes = (abs(x)-70)*(abs(x)-70) + (y-30)*(y-30);
+			  float quad_rad = abs((y+100)-0.01*x*x);
+			  if(rad_head > 150*150 && rad_head < 170*170) {
+				  true_buffer[i][j] = (uint8_t) 255;
+			  } else if (rad_eyes < 20*20) {
+				  true_buffer[i][j] = (uint8_t) 255;
+			  } else if (quad_rad < 10 && y < -55) {
+				  true_buffer[i][j] = (uint8_t) 255;
+			  } else {
+				  true_buffer[i][j] = (uint8_t) 0;
+			  }
 			  frame_buffer[i][j] = (uint8_t) (2.8*(i%44)+12*(j%10));
-			  true_buffer[i][j] = (uint8_t) (5.6*(i%22)+6*(j%20));
+			  //true_buffer[i][j] = (uint8_t) (5.6*(i%22)+6*(j%20));
 		  }
 
 
 	  }
   }
 }
-//void swap_buffer() {
-//	// Swap pointers
-//	uint8_t** tmp = true_buffer;
-//	true_buffer = frame_buffer;
-//	frame_buffer = tmp;
-//
-////	HAL_TIM_Base_Stop(&htim4);
-////	HAL_Delay(20);
-////	HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_1);
-////	HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *) true_buffer[0], horiz_size*vert_size, DAC_ALIGN_8B_R);
-////	HAL_Delay(20);
-////	HAL_TIM_Base_Start(&htim4);
-//}
+
+
+
+void swap_buffer() {
+	// Swap pointers
+	uint8_t** tmp = true_buffer;
+	true_buffer = frame_buffer;
+	frame_buffer = tmp;
+	//clear_buffer();
+	// Change DMA memory address
+	hdac1.DMA_Handle1->Instance->CMAR = (uint32_t) true_buffer[0];
+}
+
+void print_str(char* buffer, int x, int y) {
+
+	x += 3; // Avoid back porch
+	y += 65;
+
+	char cur_char = buffer[0];
+	if(cur_char >= 97) cur_char -= 32;
+	int i = 0;
+	while(cur_char != '\0') {
+		char* bitmap = font_map[cur_char - 32]; // 32 = ' '
+		for (int h = 0; h < 50; h++) {
+			frame_buffer[h+y][x] = 80; // Precursor
+			//x += 1;
+			for(int w = 0; w < 5; w++) {
+				int array_index = (h/10) * 5 + w; // h/5 = floor division, to stretch
+				if(bitmap[array_index]) frame_buffer[h+y][1+w+x] = 190;
+				else frame_buffer[h+y][1+w+x] = 80;
+			}
+			frame_buffer[h+y][x+6] = 80;
+		}
+		x += 7; // 1 pre & postcursor
+
+		i++;
+		cur_char = buffer[i];
+		//'a' -> 'A' for example
+		if(cur_char >= 97) cur_char -= 32;
+	}
+}
 /* USER CODE END 0 */
 
 /**
@@ -159,20 +209,24 @@ int main(void)
   // Fill the frame buffer
   init_buffer();
   HAL_TIM_Base_Start_IT(&htim1);	// start slave first.
-  HAL_Delay(50);
+  //HAL_Delay(50);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);	// start slave first.
-  HAL_Delay(50);
-  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *) frame_buffer[0], horiz_size*vert_size, DAC_ALIGN_8B_R);
-  HAL_Delay(50);
+  //HAL_Delay(50);
+  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *) true_buffer[0], horiz_size*vert_size, DAC_ALIGN_8B_R);
+  //HAL_Delay(50);
   HAL_TIM_Base_Start(&htim4);	// start master timer.
+  //clear_buffer();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1){
-//	HAL_Delay(3000);
-//	swap_buffer();
-
+//	print_str("Welcome", 0, 0);
+//	print_str("To", 0, 60);
+//	print_str("Tetris!", 0, 120);
+//	print_str("-Yanis J.", 0, 180);
+	swap_buffer();
+	HAL_Delay(5000);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -313,7 +367,6 @@ static void MX_TIM1_Init(void)
   }
   /* USER CODE BEGIN TIM1_Init 2 */
   TIM1->SMCR = TIM_TS_ITR3 | TIM_SMCR_SMS_0 | TIM_SMCR_SMS_1 | TIM_SMCR_SMS_2;
-  //TIM1->DIER = TIM_DIER_UIE;      // interrupt on update event (timer overflow)
   /* USER CODE END TIM1_Init 2 */
 
 }
@@ -374,7 +427,6 @@ static void MX_TIM2_Init(void)
   /* USER CODE BEGIN TIM2_Init 2 */
   // trigger selection TS=001 ITR1 = TIM2, slave mode SMS=0111 external clock mode 1
   TIM2->SMCR = TIM_TS_ITR3 | TIM_SMCR_SMS_0 | TIM_SMCR_SMS_1 | TIM_SMCR_SMS_2;
-  //TIM2->DIER = TIM_DIER_UIE;      // interrupt on update event (timer overflow)
   /* USER CODE END TIM2_Init 2 */
   HAL_TIM_MspPostInit(&htim2);
 
@@ -439,9 +491,6 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel1_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
-  /* DMAMUX1_OVR_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMAMUX1_OVR_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMAMUX1_OVR_IRQn);
 
 }
 
@@ -474,22 +523,14 @@ static void MX_GPIO_Init(void)
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-	if (htim->Instance == TIM1) {
+//	if (htim->Instance == TIM1) {
 		vert_count = (vert_count + 1) % 449;
-		// Parts done so DMA length is in bounds
-
-		// Part 1 (top)
-//		if (vert_count >= 60 || vert_count < 410) {
-//			HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_1);
-//			HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *) true_buffer[vert_count - 60], horiz_size, DAC_ALIGN_8B_R);
-//		}
-
 		if(vert_count >= 447) {
 			HAL_GPIO_WritePin(Vert_Synch_GPIO_Port, Vert_Synch_Pin, GPIO_PIN_RESET);
 		} else {
 			HAL_GPIO_WritePin(Vert_Synch_GPIO_Port, Vert_Synch_Pin, GPIO_PIN_SET);
 		}
-	}
+//	}
 }
 
 
