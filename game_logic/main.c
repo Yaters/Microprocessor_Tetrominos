@@ -157,9 +157,8 @@ void update_game_state(Window* window, int event) {
 
     // draw game board
     drawRect_color(window, 0, 0, window->width, window->height, 1, 1, '@');
-    // drawRect_color(window, BOARD_X, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT, ' ');
-    drawRect(window, BOARD_X, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT, 2, 2, window->game.board);
-    drawRect(window, BOARD_X + window->game.x, BOARD_Y + window->game.y, 4, 4, 2, 2, tetromino_current);
+    drawRect(window, BOARD_X, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT, 1, 1, window->game.board);
+    drawRect(window, BOARD_X + window->game.x, BOARD_Y + window->game.y, 4, 4, 1, 1, tetromino_current);
 
 }
 

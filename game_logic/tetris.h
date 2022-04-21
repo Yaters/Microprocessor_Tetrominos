@@ -4,16 +4,18 @@
 #include <time.h>
 
 #define BOARD_X 5
-#define BOARD_Y 10
+#define BOARD_Y 5
 
 #define BOARD_WIDTH 10
 #define BOARD_HEIGHT 24
 
-#define FRAME_WIDTH 120
-#define FRAME_HEIGHT 90
-#define IMAGE_WIDTH 90
-#define IMAGE_HEIGHT 70
-#define IMAGE_X 5
+#define EMPTY_BOARD_CHAR ' '
+
+#define FRAME_WIDTH 60
+#define FRAME_HEIGHT 30
+#define IMAGE_WIDTH 60
+#define IMAGE_HEIGHT 30
+#define IMAGE_X 0
 #define IMAGE_Y 0
 
 const char tetromino_I[] = {'1', '1', '1', '1',
@@ -84,12 +86,13 @@ int tetris_move_left(Window * window);
 int tetris_move_right(Window * window);
 int tetris_move_down(Window * window);
 void tetris_finished_tetromino(Window * window);
+void tetris_detect_rowCompletion(Window * window);
 int tetris_validate_position(Window * window, int x_offset, int y_offset);
 
 void tetris_initialize_game(Window * window) {
     // create game board, with tetromino data
     for (int i = 0; i < BOARD_WIDTH * BOARD_HEIGHT; i++) {
-        window->game.board[i] = ' ';
+        window->game.board[i] = EMPTY_BOARD_CHAR;
     }
 
     // seed random val
@@ -225,6 +228,7 @@ int tetris_move_down(Window * window) {
     }
 
     tetris_finished_tetromino(window);
+    tetris_detect_rowCompletion(window);
     return 1;
 }
 
@@ -292,5 +296,38 @@ void tetris_finished_tetromino(Window * window) {
     window->game.tetromino = window->game.nextTetromino;
     window->game.nextTetromino = tetris_get_next_tetromino(window);
     tetris_update_current_tetromino(window);
+}
+
+void tetris_detect_rowCompletion(Window * window) {
+    // go over board & detect all lines that need to be cleared.
+    int rowCompleted[BOARD_HEIGHT];
+
+    for (int row = 0; row < BOARD_HEIGHT; row++) {
+        rowCompleted[row] = 1;
+        for (int col = 0; col < BOARD_WIDTH; col++) {
+            if (window->game.board[BOARD_WIDTH * row + col] == EMPTY_BOARD_CHAR) {
+                rowCompleted[row] = 0;
+            }
+        }
+    }
+
+    // go over board from bottom to top & delete the lines that need to be cleared
+    int row_currently_drawn = BOARD_HEIGHT - 1;
+    for (int row = BOARD_HEIGHT - 1; row >= 0; row--) {
+        if (!rowCompleted[row]) {
+            for (int col = 0; col < BOARD_WIDTH; col++) {
+                window->game.board[BOARD_WIDTH * row_currently_drawn + col] = window->game.board[BOARD_WIDTH * row + col];
+            }
+            row_currently_drawn--;
+        }
+
+    }
+    
+    for (int row = row_currently_drawn; row >= 0; row--) {
+        for (int col = 0; col < BOARD_WIDTH; col++) {
+            window->game.board[BOARD_WIDTH * row_currently_drawn + col] = EMPTY_BOARD_CHAR;
+        }
+        row_currently_drawn--;
+    }
 }
 #endif
