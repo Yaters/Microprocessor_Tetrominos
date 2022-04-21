@@ -17,6 +17,7 @@
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
+#include "main.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -24,6 +25,7 @@
 #include <stdio.h>
 #include "fontlib.h"
 #include "graphics.h"
+#include "tetris.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -35,12 +37,14 @@
 /* USER CODE BEGIN PD */
 #define horiz_size 100
 #define vert_size 449
+
+#define INPUT_BUFFER_SIZE 5
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
 typedef enum {
-	DOWN, CW, CCW, LEFT, RIGHT, TOGGLEPAUSE
+	DOWN, CW, CCW, LEFT, RIGHT, TOGGLEPAUSE, INPUT_ERROR
 } game_input_t;
 /* USER CODE END PM */
 
@@ -59,14 +63,21 @@ UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
 
+//Input Storing
+
+game_input_t input_buffer[INPUT_BUFFER_SIZE];
+int buffer_pop = 0;
+int buffer_push = 0; // pop = push then overflow or empty
+
+
 int vert_count = 0;
 uint8_t** frame_buffer;
 uint8_t** true_buffer;
 static const char empty[80] =
-		"                                                                               \n";
+		"                                                                              \n\0";
 
 char buf[80] =
-		"                                                                               \n";
+		"                                                                              \n\0";
 char in_buf[2] = "hi";
 
 int paused = 0;
@@ -94,6 +105,8 @@ void _print();
 void clear();
 void hello_world();
 void print_gameInput(game_input_t input);
+
+extern uint8_t tetromino_current[];
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -135,6 +148,8 @@ void print_gameInput(game_input_t input) {
 		break;
 	case TOGGLEPAUSE:
 		sprintf(buf, "Input: Toggle Pause/Resume");
+	default:
+		sprintf(buf, "INPUT ERROR");
 
 	}
 	_print();
@@ -147,6 +162,120 @@ void clear_buffer() {
 		}
 	}
 }
+
+// only used for testing & visual output on CMD
+extern void update_screen(Window * window) {
+//    system("cls");
+//    if (window->curBuff == 0) {
+//        for (int row = 0; row < FRAME_HEIGHT; row++) {
+//            for (int col = 0; col < FRAME_WIDTH; col++) {
+//                printf("%c", window->imgBuff1[row * FRAME_WIDTH + col]);
+//            }
+//            printf("\n");
+//        }
+//    }
+//    else {
+//        for (int row = 0; row < FRAME_HEIGHT; row++) {
+//            for (int col = 0; col < FRAME_WIDTH; col++) {
+//                printf("%c", window->imgBuff2[row * FRAME_WIDTH + col]);
+//            }
+//            printf("\n");
+//        }
+//    }
+
+}
+
+// create window, as well as initializes tetris game
+void create_window(Window * window) {
+    // initialize window
+    window->width = IMAGE_WIDTH;
+    window->height = IMAGE_HEIGHT;
+
+    // fill image buffers with default value
+    for (int i = 0; i < FRAME_HEIGHT * FRAME_WIDTH; i++) {
+        window->imgBuff1[i] = '.';
+        window->imgBuff2[i] = '.';
+    }
+    window->curBuff = 0;
+
+    // initialize tetris game board
+    tetris_initialize_game(window);
+}
+
+/**
+ * @brief Use when the tetris game is playing. (state machine -> game)
+ *
+ * @param window window that is being used
+ * @param event user input
+ */
+void game_playing(Window* window, int event) {
+
+    switch (event) {
+        // move left = 1
+        case 1:
+            tetris_move_left(window);
+        break;
+
+        // move right = 2
+        case 2:
+            tetris_move_right(window);
+        break;
+
+        // rotate clockwise
+        case 3:
+            tetris_rotate_C_tetromino(window);
+        break;
+
+        // rotate counter clockwise
+        case 4:
+            tetris_rotate_CC_tetromino(window);
+        break;
+
+        // drop piece
+        case 5:
+            tetris_move_down(window);
+        break;
+
+        // swap pieces
+        case 6:
+            tetris_move_down(window);
+        break;
+
+        default:
+            tetris_move_down(window);
+        break;
+    }
+
+    // draw game board
+    drawRect_color(window, 0, 0, window->width, window->height, 1, 1, '@');
+    drawRect(window, BOARD_X, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT, 1, 1, window->game.board);
+    drawRect(window, BOARD_X + window->game.x, BOARD_Y + window->game.y, 4, 4, 1, 1, tetromino_current);
+
+}
+
+/**
+ * @brief Use when the tetris game is paused.
+ *
+ * @param window window that is being used
+ * @param event user input
+ */
+void game_paused(Window* window, int event) {
+    // draw game board
+    drawRect_color(window, 0, 0, window->width, window->height, 1, 1, '+');
+}
+
+/**
+ * @brief Use when the tetris game is paused.
+ *
+ * @param window window that is being used
+ * @param event user input
+ */
+void game_start(Window* window, int event) {
+    // draw game board
+    drawRect_color(window, 0, 0, window->width, window->height, 1, 1, '!');
+}
+
+
 // Fill buffers with testing stuff
 void init_buffer(uint8_t* tmp_buffer, uint8_t* tmp2_buffer) {
   // Allocate buffers
@@ -244,7 +373,9 @@ void print_str(char* buffer, int x, int y) {
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
+	for (int i = 0; i < INPUT_BUFFER_SIZE; i++) {
+	    input_buffer[i] = INPUT_ERROR;
+	}
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -302,8 +433,30 @@ int main(void)
 //	print_str("To", 0, 60);
 //	print_str("Tetris!", 0, 120);
 //	print_str("-Yanis J.", 0, 180);
-	swap_buffer();
+	//swap_buffer();
 //	HAL_Delay(5000);
+      // process button presses (update game state)
+	int event = process_user_input(&window);
+
+	if (event > 0) {
+	  switch (window.game.state) {
+		  case Start:
+			  game_start(&window, event);
+		  break;
+		  case Playing:
+			  // update the game state, and draw to frame buffer
+			  game_playing(&window, event);
+		  break;
+		  case Paused:
+			  game_paused(&window, event);
+		  break;
+	  }
+	  swap_buffer();
+
+//	  refreshScreen(&window);
+//	  // update screen
+//	  update_screen(&window);
+	}
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -767,30 +920,94 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 //	}
 }
 
+
+
+void push_input_buffer(game_input_t input) {
+	input_buffer[buffer_push] = input;
+	buffer_push = (buffer_push + 1) % INPUT_BUFFER_SIZE;
+}
+
+game_input_t pop_input_buffer() {
+	if(buffer_pop == buffer_push) return INPUT_ERROR;
+	game_input_t ret = input_buffer[buffer_pop];
+	buffer_pop = (buffer_pop + 1) % INPUT_BUFFER_SIZE;
+	return ret;
+}
+
+
+
+int process_user_input(Window * window) {
+    //char c = getchar();
+    game_input_t c = pop_input_buffer();
+    while(c == INPUT_ERROR) c = pop_input_buffer();
+
+    switch (c) {
+        // move left
+        case LEFT:
+            return 1;
+        break;
+        // move right
+        case RIGHT:
+            return 2;
+        break;
+        case DOWN:
+            return 0;
+        break;
+//        case 'q':
+//            return -1;
+//        break;
+        // rotate CC = 4
+        case CCW:
+            return 4;
+        break;
+        // rotate C = 3
+        case CW:
+            return 3;
+        break;
+        // pause game
+        case TOGGLEPAUSE:
+            if (window->game.state == Playing) {
+                window->game.state = Paused;
+            }
+            else {
+                window->game.state = Playing;
+            }
+        break;
+        default:
+        break;
+    }
+
+    // return a value not mapped to any event
+    return 10;
+}
+
+
+
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 //	print_inbuf();
 	char c = ((huart)->Instance)->RDR;
-	swap_buffer();
+//	swap_buffer();
 	switch (c) {
 	case 53: // 5 as in the key "5" (to test if working)
 		hello_world();
 		break;
 	case 97: // a
-		print_gameInput(LEFT);
+		push_input_buffer(LEFT);
 		break;
 	case 100: // d
-		print_gameInput(RIGHT);
+		push_input_buffer(RIGHT);
 		break;
-	case 107: // l
-		print_gameInput(CCW);
+	case 107: // l ' '?
+		push_input_buffer(CCW);
 		break;
 	case 59: // semicolon
-		print_gameInput(CW);
+		push_input_buffer(CW);
 		break;
 	case 115: // s
-		print_gameInput(DOWN);
+		push_input_buffer(DOWN);
 		break;
 	case 32: // space
+		push_input_buffer(TOGGLEPAUSE);
 		//togglePause();
 	default:
 		break;
@@ -798,117 +1015,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 	HAL_UART_Receive_IT(&huart1, (uint8_t*) in_buf, 1);
 }
 
-// only used for testing & visual output on CMD
-extern void update_screen(Window * window) {
-//    system("cls");
-//    if (window->curBuff == 0) {
-//        for (int row = 0; row < FRAME_HEIGHT; row++) {
-//            for (int col = 0; col < FRAME_WIDTH; col++) {
-//                printf("%c", window->imgBuff1[row * FRAME_WIDTH + col]);
-//            }
-//            printf("\n");
-//        }
-//    }
-//    else {
-//        for (int row = 0; row < FRAME_HEIGHT; row++) {
-//            for (int col = 0; col < FRAME_WIDTH; col++) {
-//                printf("%c", window->imgBuff2[row * FRAME_WIDTH + col]);
-//            }
-//            printf("\n");
-//        }
-//    }
 
-}
-
-// create window, as well as initializes tetris game
-void create_window(Window * window) {
-    // initialize window
-    window->width = IMAGE_WIDTH;
-    window->height = IMAGE_HEIGHT;
-
-    // fill image buffers with default value
-    for (int i = 0; i < FRAME_HEIGHT * FRAME_WIDTH; i++) {
-        window->imgBuff1[i] = '.';
-        window->imgBuff2[i] = '.';
-    }
-    window->curBuff = 0;
-
-    // initialize tetris game board
-    tetris_initialize_game(window);
-}
-
-/**
- * @brief Use when the tetris game is playing. (state machine -> game)
- *
- * @param window window that is being used
- * @param event user input
- */
-void game_playing(Window* window, int event) {
-
-    switch (event) {
-        // move left = 1
-        case 1:
-            tetris_move_left(window);
-        break;
-
-        // move right = 2
-        case 2:
-            tetris_move_right(window);
-        break;
-
-        // rotate clockwise
-        case 3:
-            tetris_rotate_C_tetromino(window);
-        break;
-
-        // rotate counter clockwise
-        case 4:
-            tetris_rotate_CC_tetromino(window);
-        break;
-
-        // drop piece
-        case 5:
-            tetris_move_down(window);
-        break;
-
-        // swap pieces
-        case 6:
-            tetris_move_down(window);
-        break;
-
-        default:
-            tetris_move_down(window);
-        break;
-    }
-
-    // draw game board
-    drawRect_color(window, 0, 0, window->width, window->height, 1, 1, '@');
-    drawRect(window, BOARD_X, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT, 1, 1, window->game.board);
-    drawRect(window, BOARD_X + window->game.x, BOARD_Y + window->game.y, 4, 4, 1, 1, tetromino_current);
-
-}
-
-/**
- * @brief Use when the tetris game is paused.
- *
- * @param window window that is being used
- * @param event user input
- */
-void game_paused(Window* window, int event) {
-    // draw game board
-    drawRect_color(window, 0, 0, window->width, window->height, 1, 1, '+');
-}
-
-/**
- * @brief Use when the tetris game is paused.
- *
- * @param window window that is being used
- * @param event user input
- */
-void game_start(Window* window, int event) {
-    // draw game board
-    drawRect_color(window, 0, 0, window->width, window->height, 1, 1, '!');
-}
 /* USER CODE END 4 */
 
 /**

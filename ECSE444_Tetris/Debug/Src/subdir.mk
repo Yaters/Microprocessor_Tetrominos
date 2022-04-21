@@ -5,30 +5,36 @@
 
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
+../Src/graphics.c \
 ../Src/main.c \
 ../Src/stm32l4xx_hal_msp.c \
 ../Src/stm32l4xx_it.c \
 ../Src/syscalls.c \
 ../Src/sysmem.c \
 ../Src/system_stm32l4xx.c \
+../Src/tetris.c \
 ../Src/tetristhemequiet.c 
 
 OBJS += \
+./Src/graphics.o \
 ./Src/main.o \
 ./Src/stm32l4xx_hal_msp.o \
 ./Src/stm32l4xx_it.o \
 ./Src/syscalls.o \
 ./Src/sysmem.o \
 ./Src/system_stm32l4xx.o \
+./Src/tetris.o \
 ./Src/tetristhemequiet.o 
 
 C_DEPS += \
+./Src/graphics.d \
 ./Src/main.d \
 ./Src/stm32l4xx_hal_msp.d \
 ./Src/stm32l4xx_it.d \
 ./Src/syscalls.d \
 ./Src/sysmem.d \
 ./Src/system_stm32l4xx.d \
+./Src/tetris.d \
 ./Src/tetristhemequiet.d 
 
 
@@ -39,7 +45,7 @@ Src/%.o: ../Src/%.c Src/subdir.mk
 clean: clean-Src
 
 clean-Src:
-	-$(RM) ./Src/main.d ./Src/main.o ./Src/stm32l4xx_hal_msp.d ./Src/stm32l4xx_hal_msp.o ./Src/stm32l4xx_it.d ./Src/stm32l4xx_it.o ./Src/syscalls.d ./Src/syscalls.o ./Src/sysmem.d ./Src/sysmem.o ./Src/system_stm32l4xx.d ./Src/system_stm32l4xx.o ./Src/tetristhemequiet.d ./Src/tetristhemequiet.o
+	-$(RM) ./Src/graphics.d ./Src/graphics.o ./Src/main.d ./Src/main.o ./Src/stm32l4xx_hal_msp.d ./Src/stm32l4xx_hal_msp.o ./Src/stm32l4xx_it.d ./Src/stm32l4xx_it.o ./Src/syscalls.d ./Src/syscalls.o ./Src/sysmem.d ./Src/sysmem.o ./Src/system_stm32l4xx.d ./Src/system_stm32l4xx.o ./Src/tetris.d ./Src/tetris.o ./Src/tetristhemequiet.d ./Src/tetristhemequiet.o
 
 .PHONY: clean-Src
 
