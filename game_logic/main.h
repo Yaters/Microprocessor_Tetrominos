@@ -9,6 +9,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include "tetris.h"
 
 #ifdef _WIN32
 #include <Windows.h>
@@ -17,22 +18,14 @@
 #include <unistd.h>
 #endif
 
-// structs
-typedef struct Window {
-    int width;
-    int height;
 
-    // image buffers
-    char * imgBuff1;
-    char * imgBuff2;
-    int curBuff;
-}Window;
 
 
 // function prototypes
 int process_user_input(Window * window);
 void update_screen(Window* window);
-Window* create_window(int width, int height);
+void update_game_state(Window* window, int event);
+void create_window(Window * window);
 void end_application(Window* window);
 
 
