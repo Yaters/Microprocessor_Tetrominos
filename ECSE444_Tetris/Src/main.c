@@ -38,23 +38,37 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
+typedef enum {
+	DOWN, CW, CCW, LEFT, RIGHT, TOGGLEPAUSE
+} game_input_t;
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
 DAC_HandleTypeDef hdac1;
 DMA_HandleTypeDef hdma_dac1_ch1;
+DMA_HandleTypeDef hdma_dac1_ch2;
 
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
+TIM_HandleTypeDef htim8;
+
+UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
 
 int vert_count = 0;
 uint8_t** frame_buffer;
 uint8_t** true_buffer;
+static const char empty[80] =
+		"                                                                               \n";
 
+char buf[80] =
+		"                                                                               \n";
+char in_buf[2] = "hi";
+
+int paused = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -65,12 +79,65 @@ static void MX_DMA_Init(void);
 static void MX_TIM4_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM1_Init(void);
+static void MX_TIM3_Init(void);
+static void MX_TIM8_Init(void);
+static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim);
+void swap_buffer();
+void clear_buffer();
+void init_buffer();
+void print_str(char* buffer, int x, int y);
+void togglePause();
+void _print();
+void clear();
+void hello_world();
+void print_gameInput(game_input_t input);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void _print() {
+	HAL_UART_Transmit(&huart1, buf, 80, 0xFFFF);
+}
+
+void clear() {
+	sprintf(buf, empty);
+//	_print();
+}
+
+void hello_world() {
+	sprintf(buf, "Hello, World!");
+	_print();
+}
+
+void print_gameInput(game_input_t input) {
+	// here is where we handle input. RIght now this is just an inefficient nested switchcase
+	clear();
+//	sprintf(buf, input);
+	//swap_buffer();
+	switch (input) {
+	case LEFT:
+		sprintf(buf, "Input: Left");
+		break;
+	case RIGHT:
+		sprintf(buf, "Input: Right");
+		break;
+	case DOWN:
+		sprintf(buf, "Input: Down");
+		break;
+	case CW:
+		sprintf(buf, "Input: Clockwise");
+		break;
+	case CCW:
+		sprintf(buf, "Input: Counterclockwise");
+		break;
+	case TOGGLEPAUSE:
+		sprintf(buf, "Input: Toggle Pause/Resume");
+
+	}
+	_print();
+}
 
 void clear_buffer() {
 	for (int i = 0; i < vert_size; i++) {
@@ -110,7 +177,7 @@ void init_buffer() {
 			  float x = 4.48718*(j-3) - 175;
 			  float rad_head = x*x + y*y;
 			  float rad_eyes = (abs(x)-70)*(abs(x)-70) + (y-30)*(y-30);
-			  float quad_rad = abs((y+100)-0.01*x*x);
+			  float quad_rad = abs((y+100)+0.01*x*x);
 			  if(rad_head > 150*150 && rad_head < 170*170) {
 				  true_buffer[i][j] = (uint8_t) 255;
 			  } else if (rad_eyes < 20*20) {
@@ -205,6 +272,9 @@ int main(void)
   MX_TIM4_Init();
   MX_TIM2_Init();
   MX_TIM1_Init();
+  MX_TIM3_Init();
+  MX_TIM8_Init();
+  MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
   // Fill the frame buffer
   init_buffer();
@@ -215,6 +285,8 @@ int main(void)
   HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *) true_buffer[0], horiz_size*vert_size, DAC_ALIGN_8B_R);
   //HAL_Delay(50);
   HAL_TIM_Base_Start(&htim4);	// start master timer.
+
+  HAL_UART_Receive_IT(&huart1, (uint8_t*) in_buf, 1);
   //clear_buffer();
   /* USER CODE END 2 */
 
@@ -225,8 +297,8 @@ int main(void)
 //	print_str("To", 0, 60);
 //	print_str("Tetris!", 0, 120);
 //	print_str("-Yanis J.", 0, 180);
-	swap_buffer();
-	HAL_Delay(5000);
+//	swap_buffer();
+//	HAL_Delay(5000);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -315,6 +387,13 @@ static void MX_DAC1_Init(void)
   sConfig.DAC_ConnectOnChipPeripheral = DAC_CHIPCONNECT_DISABLE;
   sConfig.DAC_UserTrimming = DAC_TRIMMING_FACTORY;
   if (HAL_DAC_ConfigChannel(&hdac1, &sConfig, DAC_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** DAC channel OUT2 config
+  */
+  sConfig.DAC_Trigger = DAC_TRIGGER_T8_TRGO;
+  if (HAL_DAC_ConfigChannel(&hdac1, &sConfig, DAC_CHANNEL_2) != HAL_OK)
   {
     Error_Handler();
   }
@@ -433,6 +512,51 @@ static void MX_TIM2_Init(void)
 }
 
 /**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 9999;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 25400;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
+
+}
+
+/**
   * @brief TIM4 Initialization Function
   * @param None
   * @retval None
@@ -478,6 +602,101 @@ static void MX_TIM4_Init(void)
 }
 
 /**
+  * @brief TIM8 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM8_Init(void)
+{
+
+  /* USER CODE BEGIN TIM8_Init 0 */
+
+  /* USER CODE END TIM8_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM8_Init 1 */
+
+  /* USER CODE END TIM8_Init 1 */
+  htim8.Instance = TIM8;
+  htim8.Init.Prescaler = 0;
+  htim8.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim8.Init.Period = 10000;
+  htim8.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim8.Init.RepetitionCounter = 0;
+  htim8.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim8, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
+  sMasterConfig.MasterOutputTrigger2 = TIM_TRGO2_UPDATE;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim8, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM8_Init 2 */
+
+  /* USER CODE END TIM8_Init 2 */
+
+}
+
+/**
+  * @brief USART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART1_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART1_Init 0 */
+
+  /* USER CODE END USART1_Init 0 */
+
+  /* USER CODE BEGIN USART1_Init 1 */
+
+  /* USER CODE END USART1_Init 1 */
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 115200;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart1.Init.ClockPrescaler = UART_PRESCALER_DIV1;
+  huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetTxFifoThreshold(&huart1, UART_TXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_SetRxFifoThreshold(&huart1, UART_RXFIFO_THRESHOLD_1_8) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_UARTEx_DisableFifoMode(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART1_Init 2 */
+
+  /* USER CODE END USART1_Init 2 */
+
+}
+
+/**
   * Enable DMA controller clock
   */
 static void MX_DMA_Init(void)
@@ -491,6 +710,9 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel1_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+  /* DMA1_Channel2_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
 
 }
 
@@ -504,11 +726,18 @@ static void MX_GPIO_Init(void)
   GPIO_InitTypeDef GPIO_InitStruct = {0};
 
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(Vert_Synch_GPIO_Port, Vert_Synch_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin : myButton_Pin */
+  GPIO_InitStruct.Pin = myButton_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(myButton_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : Vert_Synch_Pin */
   GPIO_InitStruct.Pin = Vert_Synch_Pin;
@@ -533,6 +762,36 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 //	}
 }
 
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
+//	print_inbuf();
+	char c = ((huart)->Instance)->RDR;
+	swap_buffer();
+	switch (c) {
+	case 53: // 5 as in the key "5" (to test if working)
+		hello_world();
+		break;
+	case 97: // a
+		print_gameInput(LEFT);
+		break;
+	case 100: // d
+		print_gameInput(RIGHT);
+		break;
+	case 107: // l
+		print_gameInput(CCW);
+		break;
+	case 59: // semicolon
+		print_gameInput(CW);
+		break;
+	case 115: // s
+		print_gameInput(DOWN);
+		break;
+	case 32: // space
+		//togglePause();
+	default:
+		break;
+	}
+	HAL_UART_Receive_IT(&huart1, (uint8_t*) in_buf, 1);
+}
 
 
 /* USER CODE END 4 */

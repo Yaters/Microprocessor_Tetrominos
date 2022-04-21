@@ -59,6 +59,8 @@ void Error_Handler(void);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define myButton_Pin GPIO_PIN_13
+#define myButton_GPIO_Port GPIOC
 #define Horiz_Synch_Pin GPIO_PIN_3
 #define Horiz_Synch_GPIO_Port GPIOA
 #define Vert_Synch_Pin GPIO_PIN_2
