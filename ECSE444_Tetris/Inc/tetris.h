@@ -2,24 +2,25 @@
 #define __TETRIS_H
 
 #include "main.h"
+#include <stdlib.h>
 
 #define BOARD_X 5
 #define BOARD_Y 5
 
-#define BOARD_WIDTH 10
-#define BOARD_HEIGHT 24
+#define BOARD_WIDTH 10   //scale= * 4
+#define BOARD_HEIGHT 24  //scale= * 10
 
-#define EMPTY_BOARD_CHAR ' '
+#define EMPTY_BOARD_CHAR 5
 
 #define FRAME_WIDTH 100
 #define FRAME_HEIGHT 499
-#define IMAGE_WIDTH 60
-#define IMAGE_HEIGHT 30
-#define IMAGE_X 0
-#define IMAGE_Y 0
+#define IMAGE_WIDTH 80
+#define IMAGE_HEIGHT 350
+#define IMAGE_X 2
+#define IMAGE_Y 60
 
 // enums
-enum consoleState{Start, Playing, Paused};
+enum consoleState{Start, Playing, Paused, Ended};
 
 // structs
 typedef struct Game {
@@ -39,9 +40,10 @@ typedef struct Window {
     int height;
 
     // image buffers
-    uint8_t imgBuff1[FRAME_HEIGHT * FRAME_WIDTH];
-    uint8_t imgBuff2[FRAME_HEIGHT * FRAME_WIDTH];
-    int curBuff;
+    uint8_t** frame;
+    uint8_t** true;
+    uint8_t frameBuff[FRAME_HEIGHT * FRAME_WIDTH];
+    uint8_t trueBuff[FRAME_HEIGHT * FRAME_WIDTH];
     Game game;
 }Window;
 
@@ -60,15 +62,9 @@ int tetris_move_down(Window * window);
 void tetris_finished_tetromino(Window * window);
 void tetris_detect_rowCompletion(Window * window);
 int tetris_validate_position(Window * window, int x_offset, int y_offset);
+void tetris_draw_endScreen(Window * window);
 
 
-int process_user_input(Window * window);
-extern void update_screen(Window* window);
-void game_playing(Window* window, int event);
-void game_paused(Window * window, int event);
-void game_start(Window * window, int event);
-void create_window(Window * window);
-void end_application(Window* window);
 
 
 // Window Functions

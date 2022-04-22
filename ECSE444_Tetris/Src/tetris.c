@@ -1,44 +1,51 @@
 #include "tetris.h"
 
-const uint8_t tetromino_I[] = {'1', '1', '1', '1',
-                     '\0', '\0', '\0', '\0',
-                     '\0', '\0', '\0', '\0',
-                     '\0', '\0', '\0', '\0'};
-const uint8_t tetromino_J[] = {'1', '\0', '\0', '\0',
-                     '1', '1', '1', '\0',
-                     '\0', '\0', '\0', '\0',
-                     '\0', '\0', '\0', '\0'};
-const uint8_t tetromino_L[] = {'\0', '\0', '\0', '1',
-                     '\0', '1', '1', '1',
-                     '\0', '\0', '\0', '\0',
-                     '\0', '\0', '\0', '\0'};
-const uint8_t tetromino_O[] = {'\0', '1', '1', '\0',
-                     '\0', '1', '1', '\0',
-                     '\0', '\0', '\0', '\0',
-                     '\0', '\0', '\0', '\0'};
-const uint8_t tetromino_S[] = {'\0', '1', '1', '\0',
-                     '1', '1', '\0', '\0',
-                     '\0', '\0', '\0', '\0',
-                     '\0', '\0', '\0', '\0'};
-const uint8_t tetromino_T[] = {'\0', '1', '\0', '\0',
-                     '1', '1', '1', '\0',
-                     '\0', '\0', '\0', '\0',
-                     '\0', '\0', '\0', '\0'};
-const uint8_t tetromino_Z[] = {'1', '1', '\0', '\0',
-                     '\0', '1', '1', '\0',
-                     '\0', '\0', '\0', '\0',
-                     '\0', '\0', '\0', '\0'};
+const uint8_t tetromino_I[] = {  150, 150, 150, 150,
+								 10, 10, 10, 10,
+								 10, 10, 10, 10,
+								 10, 10, 10, 10};
+
+const uint8_t tetromino_J[] = {  150, 10, 10, 10,
+								 150, 150, 150, 10,
+								 10, 10, 10, 10,
+								 10, 10, 10, 10};
+
+const uint8_t tetromino_L[] = {  10, 10, 10, 150,
+								 10, 150, 150, 150,
+								 10, 10, 10, 10,
+								 10, 10, 10, 10};
+
+const uint8_t tetromino_O[] = {  10, 150, 150, 10,
+								 10, 150, 150, 10,
+								 10, 10, 10, 10,
+								 10, 10, 10, 10};
+
+const uint8_t tetromino_S[] = {  10, 150, 150, 10,
+								 150, 150, 10, 10,
+								 10, 10, 10, 10,
+								 10, 10, 10, 10};
+
+const uint8_t tetromino_T[] = {  10, 150, 10, 10,
+								 150, 150, 150, 10,
+								 10, 10, 10, 10,
+								 10, 10, 10, 10};
+
+const uint8_t tetromino_Z[] = {  150, 150, 10, 10,
+								 10, 150, 150, 10,
+								 10, 10, 10, 10,
+								 10, 10, 10, 10};
+
 // used to cache the rotated state of the tetromino
-uint8_t tetromino_current[] = {'\0', '\0', '\0', '\0',
-                     '\0', '\0', '\0', '\0',
-                     '\0', '\0', '\0', '\0',
-                     '\0', '\0', '\0', '\0'};
+uint8_t tetromino_current[] = {  10, 10, 10, 10,
+								 10, 10, 10, 10,
+								 10, 10, 10, 10,
+								 10, 10, 10, 10};
 
 // used to store the collision between the tetromino and the game board
-uint8_t tetromino_collision[] = {'\0', '\0', '\0', '\0',
-                        '\0', '\0', '\0', '\0',
-                        '\0', '\0', '\0', '\0',
-                        '\0', '\0', '\0', '\0'};
+uint8_t tetromino_collision[]={ 10, 10, 10, 10,
+								10, 10, 10, 10,
+								10, 10, 10, 10,
+								10, 10, 10, 10};
 
 
 /**
@@ -53,6 +60,7 @@ void tetris_initialize_game(Window * window) {
     }
 
     // seed random val
+    // TODO: Make this rand again
 //    time_t t;
 //    srand((unsigned) time(&t));
 
@@ -74,7 +82,8 @@ void tetris_initialize_game(Window * window) {
  * @return const char* pointer to random tetromino piece
  */
 const uint8_t * tetris_get_next_tetromino() {
-    switch (rand() % 7) {
+	// TODO: Make this rand again
+    switch (0 % 7) {
         case 0:
             return tetromino_I;
         break;
@@ -249,22 +258,20 @@ int tetris_move_down(Window * window) {
  */
 int tetris_validate_position(Window * window, int x_offset, int y_offset) {
     int index = 0;
-    int wall_colision_flag = 0;
-    int block_collision_flag = 0;
     for (int row = window->game.y + y_offset; row < window->game.y + 4 + y_offset; row++) {
         for (int col = window->game.x + x_offset; col < window->game.x + 4 + x_offset; col++) {
             // check for collision w/ bottom floor
-            if (row >= BOARD_HEIGHT && tetromino_current[index] != '\0') {
+            if (row >= BOARD_HEIGHT && tetromino_current[index] != 10) {
                 return 3;
             }
             // collision w/ left wall
-            if (col < 0 && tetromino_current[index] != '\0') {
+            if (col < 0 && tetromino_current[index] != 10) {
                 return 1;
             }
-            if (col >= BOARD_WIDTH && tetromino_current[index] != '\0') {
+            if (col >= BOARD_WIDTH && tetromino_current[index] != 10) {
                 return 2;
             }
-            if (tetromino_current[index] != '\0' && window->game.board[BOARD_WIDTH * row + col] != ' ') {
+            if (tetromino_current[index] != 10 && window->game.board[BOARD_WIDTH * row + col] != EMPTY_BOARD_CHAR) {
                 return 4;
             }
             index++;
@@ -273,7 +280,35 @@ int tetris_validate_position(Window * window, int x_offset, int y_offset) {
     return 0;
 }
 
-//
+/**
+ * @brief Draws the final screen of Tetris.
+ * does NOT care about collisions. Assumes all of those have been remedied before being called.
+ * Is responsible for detecting an END of game
+ * @param window tetris game window w/ tetromino data we want to validate
+ */
+void tetris_draw_endScreen(Window * window) {
+	// Draw a smiley face
+	for(int i = IMAGE_Y; i < IMAGE_HEIGHT + IMAGE_Y; i++) {
+		for(int j = IMAGE_X; j < IMAGE_WIDTH + IMAGE_X; j++) {
+			float y = IMAGE_HEIGHT-(i-IMAGE_Y) - (((float)IMAGE_HEIGHT)/2);
+			float x = (((float)IMAGE_HEIGHT)/IMAGE_WIDTH)*(j-IMAGE_X) - (((float)IMAGE_HEIGHT)/2);
+			float rad_head = x*x + y*y;
+			float rad_eyes = (abs(x)-70)*(abs(x)-70) + (y-30)*(y-30);
+			float quad_rad = abs((y+100)+0.01*x*x);
+			if(rad_head > 150*150 && rad_head < 170*170) {
+				window->frame[i][j] = (uint8_t) 255;
+			} else if (rad_eyes < 20*20) {
+				window->frame[i][j] = (uint8_t) 255;
+			} else if (quad_rad < 10 && y < -55) {
+				window->frame[i][j] = (uint8_t) 255;
+			} else {
+				window->frame[i][j] = (uint8_t) 0;
+			}
+		}
+	}
+}
+
+
 /**
  * @brief Finalizes the tetromino position and generates a new tetromino.
  * does NOT care about collisions. Assumes all of those have been remedied before being called.
@@ -284,12 +319,14 @@ void tetris_finished_tetromino(Window * window) {
     int index = 0;
     for (int row = window->game.y; row < window->game.y + 4; row++) {
         for (int col = window->game.x; col < window->game.x + 4; col++) {
-            if (row >= 0 && row < BOARD_HEIGHT && col >= 0 && col < BOARD_WIDTH && tetromino_current[index] != '\0') {
+            if (row >= 0 && row < BOARD_HEIGHT && col >= 0 && col < BOARD_WIDTH && tetromino_current[index] != 10) {
                 window->game.board[BOARD_WIDTH * row + col] = tetromino_current[index];
 
                 // check to see if game over!
                 if (row < 4) {
                     tetris_initialize_game(window);
+                    tetris_draw_endScreen(window);
+                    window->game.state = Ended;
                 }
             }
             index++;
@@ -329,7 +366,7 @@ void tetris_detect_rowCompletion(Window * window) {
         for (int row = BOARD_HEIGHT - 1; row >= 0; row--) {
             if (rowCompleted[row]) {
                 for (int col = 0; col < BOARD_WIDTH; col++) {
-                    window->game.board[BOARD_WIDTH * row + col] = (i%2) ? '1' : EMPTY_BOARD_CHAR;
+                    window->game.board[BOARD_WIDTH * row + col] = (i%2) ? 150 : EMPTY_BOARD_CHAR;
                 }
                 anyRowFlag = 1;
             }
@@ -339,7 +376,7 @@ void tetris_detect_rowCompletion(Window * window) {
             break;
         }
 
-
+        drawRect(window, BOARD_X, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT, 1, 1, window->game.board);
     }
 
     // go over board from bottom to top & delete the lines that need to be cleared
@@ -375,14 +412,14 @@ void tetris_detect_rowCompletion(Window * window) {
  * @param data data to write to screen
  */
 void drawRect(Window* window, int x_start, int y_start, int width, int height, int scaling_h, int scaling_v, uint8_t* data) {
-	uint8_t* buff = (window->curBuff == 1) ? window->imgBuff1 : window->imgBuff2;
+	uint8_t** buff = window->frame;
 
     int indexRow = 0, indexCol;
     for (int row = y_start * scaling_v + IMAGE_Y; row < (y_start + height)  * scaling_v + IMAGE_Y; row++) {
         indexCol = 0;
         for (int col = x_start * scaling_h + IMAGE_X; col < (x_start + width) * scaling_h + IMAGE_X; col++) {
-            if (row >= IMAGE_Y && row < IMAGE_Y + IMAGE_HEIGHT && col >= IMAGE_X && col < IMAGE_WIDTH + IMAGE_X && data[indexRow * width + indexCol] != '\0') {
-                buff[row * FRAME_WIDTH + col] = data[indexRow * width + indexCol];
+            if (row >= IMAGE_Y && row < IMAGE_Y + IMAGE_HEIGHT && col >= IMAGE_X && col < IMAGE_WIDTH + IMAGE_X && data[indexRow * width + indexCol] != 10) {
+                buff[row][col] = data[indexRow * width + indexCol];
             }
             if ((col - (x_start * scaling_h + IMAGE_X) + 1) % scaling_h == 0) {
                 indexCol++;
@@ -407,22 +444,13 @@ void drawRect(Window* window, int x_start, int y_start, int width, int height, i
  * @param color color to draw in rectangle
  */
 void drawRect_color(Window* window, int x_start, int y_start, int width, int height, int scaling_h, int scaling_v, uint8_t color) {
-	uint8_t* buff = (window->curBuff == 1) ? window->imgBuff1 : window->imgBuff2;
+	uint8_t** buff = window->frame;
 
     for (int row = y_start * scaling_v + IMAGE_Y; row < (y_start + height)  * scaling_v + IMAGE_Y; row++) {
         for (int col = x_start * scaling_h + IMAGE_X; col < (x_start + width) * scaling_h + IMAGE_X; col++) {
             if (row >= IMAGE_Y && row < IMAGE_Y + IMAGE_HEIGHT && col >= IMAGE_X && col < IMAGE_WIDTH + IMAGE_X) {
-                buff[row * FRAME_WIDTH + col] = color;
+            	buff[row][col] = color;
             }
         }
     }
-}
-
-/**
- * @brief Swap the image buffers.
- *
- * @param window window with the image buffers.
- */
-void refreshScreen(Window * window) {
-    window->curBuff = (window->curBuff + 1) % 2;
 }

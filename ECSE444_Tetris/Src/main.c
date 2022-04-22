@@ -39,6 +39,9 @@
 #define vert_size 449
 
 #define INPUT_BUFFER_SIZE 5
+
+#define HORIZ_SCALE 3
+#define VERT_SCALE 12
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -71,8 +74,6 @@ int buffer_push = 0; // pop = push then overflow or empty
 
 
 int vert_count = 0;
-uint8_t** frame_buffer;
-uint8_t** true_buffer;
 static const char empty[80] =
 		"                                                                              \n\0";
 
@@ -97,14 +98,23 @@ static void MX_USART1_UART_Init(void);
 /* USER CODE BEGIN PFP */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim);
 void swap_buffer();
-void clear_buffer();
 void init_buffer(uint8_t* tmp_buffer, uint8_t* tmp2_buffer);
-void print_str(char* buffer, int x, int y);
+void print_str(Window* window, char* buffer, int x, int y);
 void togglePause();
 void _print();
 void clear();
 void hello_world();
 void print_gameInput(game_input_t input);
+
+
+game_input_t process_user_input(Window * window);
+extern void update_screen(Window* window);
+void game_playing(Window* window, game_input_t event);
+void game_paused(Window * window, game_input_t event);
+void game_start(Window * window, game_input_t event);
+void game_ended(Window * window, game_input_t event);
+void create_window(Window * window);
+void end_application(Window* window);
 
 extern uint8_t tetromino_current[];
 /* USER CODE END PFP */
@@ -155,14 +165,6 @@ void print_gameInput(game_input_t input) {
 	_print();
 }
 
-void clear_buffer() {
-	for (int i = 0; i < vert_size; i++) {
-		for (int j = 0; j < horiz_size; j++) {
-			frame_buffer[i][j] = 10;
-		}
-	}
-}
-
 // only used for testing & visual output on CMD
 extern void update_screen(Window * window) {
 //    system("cls");
@@ -191,12 +193,19 @@ void create_window(Window * window) {
     window->width = IMAGE_WIDTH;
     window->height = IMAGE_HEIGHT;
 
-    // fill image buffers with default value
-    for (int i = 0; i < FRAME_HEIGHT * FRAME_WIDTH; i++) {
-        window->imgBuff1[i] = '.';
-        window->imgBuff2[i] = '.';
+    window->frame = (uint8_t**) malloc(sizeof(uint8_t*) * vert_size);
+    window->true  = (uint8_t**) malloc(sizeof(uint8_t*) * vert_size);
+
+    // Fill image buffers with default value
+    for(int i = 0; i < vert_size; i++) {
+		// Point to place in continuous mem location
+    	window->frame[i] = window->frameBuff + i*horiz_size;
+    	window->true[i]  = window->trueBuff  + i*horiz_size;
+		for (int j = 0; j < horiz_size; j++) {
+			window->frame[i][j] = 0;
+			window->true[i][j] = 0;
+		}
     }
-    window->curBuff = 0;
 
     // initialize tetris game board
     tetris_initialize_game(window);
@@ -208,49 +217,53 @@ void create_window(Window * window) {
  * @param window window that is being used
  * @param event user input
  */
-void game_playing(Window* window, int event) {
+void game_playing(Window* window, game_input_t event) {
+    if (event == TOGGLEPAUSE) {
+    	window->game.state = Paused;
+    	game_paused(window, INPUT_ERROR);
+    } else {
+        switch (event) {
+            // move left = 1
+            case LEFT:
+                tetris_move_left(window);
+            break;
 
-    switch (event) {
-        // move left = 1
-        case 1:
-            tetris_move_left(window);
-        break;
+            // move right = 2
+            case RIGHT:
+                tetris_move_right(window);
+            break;
 
-        // move right = 2
-        case 2:
-            tetris_move_right(window);
-        break;
+            // rotate clockwise
+            case CW:
+                tetris_rotate_C_tetromino(window);
+            break;
 
-        // rotate clockwise
-        case 3:
-            tetris_rotate_C_tetromino(window);
-        break;
+            // rotate counter clockwise
+            case CCW:
+                tetris_rotate_CC_tetromino(window);
+            break;
 
-        // rotate counter clockwise
-        case 4:
-            tetris_rotate_CC_tetromino(window);
-        break;
+            // drop piece
+            case DOWN:
+                tetris_move_down(window);
+            break;
 
-        // drop piece
-        case 5:
-            tetris_move_down(window);
-        break;
+            // swap pieces
+            case INPUT_ERROR:
+                //tetris_move_down(window);
+            break;
 
-        // swap pieces
-        case 6:
-            tetris_move_down(window);
-        break;
+            default:
+                //tetris_move_down(window);
+            break;
+        }
 
-        default:
-            tetris_move_down(window);
-        break;
+        // draw game board
+        drawRect_color(window, 0, 0, window->width, window->height, HORIZ_SCALE, VERT_SCALE, 150);
+        drawRect(window, BOARD_X, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT, HORIZ_SCALE, VERT_SCALE, window->game.board);
+        drawRect(window, BOARD_X + window->game.x, BOARD_Y + window->game.y, 4, 4, HORIZ_SCALE, VERT_SCALE, tetromino_current);
     }
 
-    // draw game board
-    drawRect_color(window, 0, 0, window->width, window->height, 1, 1, '@');
-    drawRect(window, BOARD_X, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT, 1, 1, window->game.board);
-    drawRect(window, BOARD_X + window->game.x, BOARD_Y + window->game.y, 4, 4, 1, 1, tetromino_current);
-
 }
 
 /**
@@ -259,84 +272,120 @@ void game_playing(Window* window, int event) {
  * @param window window that is being used
  * @param event user input
  */
-void game_paused(Window* window, int event) {
-    // draw game board
-    drawRect_color(window, 0, 0, window->width, window->height, 1, 1, '+');
+void game_paused(Window* window, game_input_t event) {
+    if (event == TOGGLEPAUSE) {
+    	window->game.state = Playing;
+    	game_playing(window, INPUT_ERROR);
+    } else {
+        // draw game board
+        drawRect_color(window, 0, 0, window->width, window->height, 4, 10, 50);
+        print_str(window, "Press Space", 2, 00);
+        print_str(window, "To Continue", 2, 60);
+    }
 }
 
 /**
  * @brief Use when the tetris game is paused.
  *
  * @param window window that is being used
- * @param event user input
  */
-void game_start(Window* window, int event) {
-    // draw game board
-    drawRect_color(window, 0, 0, window->width, window->height, 1, 1, '!');
+void game_start(Window* window, game_input_t event) {
+    if (event == TOGGLEPAUSE) {
+    	window->game.state = Playing;
+    	game_playing(window, INPUT_ERROR);
+    } else {
+        // draw game board
+        drawRect_color(window, 0, 0, window->width, window->height, 4, 10, 80);
+        print_str(window, "Welcome To", 2, 0);
+        print_str(window, "Tetris!", 20, 100);
+        print_str(window, "Press Space", 2, 200);
+        print_str(window, "To Continue", 2, 260);
+    }
+}
+
+/**
+ * @brief Use when the tetris game is paused.
+ *
+ * @param window window that is being used
+ */
+void game_ended(Window* window, game_input_t event) {
+	if (event == TOGGLEPAUSE) {
+		window->game.state = Start;
+		game_start(window, INPUT_ERROR);
+	} else {
+		tetris_draw_endScreen(window);
+	}
+
+
+
 }
 
 
-// Fill buffers with testing stuff
-void init_buffer(uint8_t* tmp_buffer, uint8_t* tmp2_buffer) {
-  // Allocate buffers
-  // Continuous memory alloc
-  frame_buffer = (uint8_t**) malloc(sizeof(uint8_t*) * vert_size);
-  true_buffer  = (uint8_t**) malloc(sizeof(uint8_t*) * vert_size);
+//// Fill buffers with testing stuff
+//void init_buffer(uint8_t* tmp_buffer, uint8_t* tmp2_buffer) {
+//  // Allocate buffers
+//  // Continuous memory alloc
+//  frame_buffer = (uint8_t**) malloc(sizeof(uint8_t*) * vert_size);
+//  true_buffer  = (uint8_t**) malloc(sizeof(uint8_t*) * vert_size);
+//
+//  // Fill them with data, start with increasing grayscale (and decreasing for back)
+//  for(int i = 0; i < vert_size; i++) {
+//	  // Point to place in continuous mem location
+//	  frame_buffer[i] = tmp_buffer  + i*horiz_size;
+//	  true_buffer[i] = tmp2_buffer  + i*horiz_size;
+//	  for(int j = 0; j < horiz_size; j++) {
+//		  // Back porch Horizontal || Front Porch Horizontal
+////		  if (j < 6 || j >= 85) {
+//		  if (j < 3 || j >= 82) {
+//			  frame_buffer[i][j] = (uint8_t) 0;
+//			  true_buffer[i][j] = (uint8_t) 0;
+//		  }
+//		  // Back porch Vertical || Front Porch Vertical
+//		  else if (i < 60 || i >= 410) {
+//			  true_buffer[i][j] = (uint8_t) 0;
+//		  }
+//		  // Color based on x pos
+//		  else {
+////			  float y = 350-(i-60) - 175;
+////			  float x = 4.48718*(j-3) - 175;
+////			  float rad_head = x*x + y*y;
+////			  float rad_eyes = (abs(x)-70)*(abs(x)-70) + (y-30)*(y-30);
+////			  float quad_rad = abs((y+100)+0.01*x*x);
+////			  if(rad_head > 150*150 && rad_head < 170*170) {
+////				  true_buffer[i][j] = (uint8_t) 255;
+////			  } else if (rad_eyes < 20*20) {
+////				  true_buffer[i][j] = (uint8_t) 255;
+////			  } else if (quad_rad < 10 && y < -55) {
+////				  true_buffer[i][j] = (uint8_t) 255;
+////			  } else {
+////				  true_buffer[i][j] = (uint8_t) 0;
+////			  }
+////			  frame_buffer[i][j] = (uint8_t) (2.8*(i%44)+12*(j%10));
+//			  //true_buffer[i][j] = (uint8_t) (5.6*(i%22)+6*(j%20));
+//		  }
+//
+//
+//	  }
+//  }
+//}
 
-  // Fill them with data, start with increasing grayscale (and decreasing for back)
-  for(int i = 0; i < vert_size; i++) {
-	  // Point to place in continuous mem location
-	  frame_buffer[i] = tmp_buffer  + i*horiz_size;
-	  true_buffer[i] = tmp2_buffer  + i*horiz_size;
-	  for(int j = 0; j < horiz_size; j++) {
-		  // Back porch Horizontal || Front Porch Horizontal
-//		  if (j < 6 || j >= 85) {
-		  if (j < 3 || j >= 82) {
-			  frame_buffer[i][j] = (uint8_t) 0;
-			  true_buffer[i][j] = (uint8_t) 0;
-		  }
-		  // Back porch Vertical || Front Porch Vertical
-		  else if (i < 60 || i >= 410) {
-			  true_buffer[i][j] = (uint8_t) 0;
-		  }
-		  // Color based on x pos
-		  else {
-			  float y = 350-(i-60) - 175;
-			  float x = 4.48718*(j-3) - 175;
-			  float rad_head = x*x + y*y;
-			  float rad_eyes = (abs(x)-70)*(abs(x)-70) + (y-30)*(y-30);
-			  float quad_rad = abs((y+100)+0.01*x*x);
-			  if(rad_head > 150*150 && rad_head < 170*170) {
-				  true_buffer[i][j] = (uint8_t) 255;
-			  } else if (rad_eyes < 20*20) {
-				  true_buffer[i][j] = (uint8_t) 255;
-			  } else if (quad_rad < 10 && y < -55) {
-				  true_buffer[i][j] = (uint8_t) 255;
-			  } else {
-				  true_buffer[i][j] = (uint8_t) 0;
-			  }
-			  frame_buffer[i][j] = (uint8_t) (2.8*(i%44)+12*(j%10));
-			  //true_buffer[i][j] = (uint8_t) (5.6*(i%22)+6*(j%20));
-		  }
 
-
-	  }
-  }
-}
-
-
-
-void swap_buffer() {
+/**
+ * @brief Swap the image buffers.
+ *
+ * @param window window with the image buffers.
+ */
+void swap_buffer(Window * window) {
 	// Swap pointers
-	uint8_t** tmp = true_buffer;
-	true_buffer = frame_buffer;
-	frame_buffer = tmp;
+	uint8_t** tmp = window->true;
+	window->true = window->frame;
+	window->frame = tmp;
 //	clear_buffer();
 	// Change DMA memory address
-	hdac1.DMA_Handle1->Instance->CMAR = (uint32_t) true_buffer[0];
+	hdac1.DMA_Handle1->Instance->CMAR = (uint32_t) window->true[0];
 }
 
-void print_str(char* buffer, int x, int y) {
+void print_str(Window * window, char* buffer, int x, int y) {
 
 	x += 3; // Avoid back porch
 	y += 65;
@@ -347,14 +396,14 @@ void print_str(char* buffer, int x, int y) {
 	while(cur_char != '\0') {
 		char* bitmap = font_map[cur_char - 32]; // 32 = ' '
 		for (int h = 0; h < 50; h++) {
-			frame_buffer[h+y][x] = 80; // Precursor
+			window->frame[h+y][x] = 80; // Precursor
 			//x += 1;
 			for(int w = 0; w < 5; w++) {
 				int array_index = (h/10) * 5 + w; // h/5 = floor division, to stretch
-				if(bitmap[array_index]) frame_buffer[h+y][1+w+x] = 190;
-				else frame_buffer[h+y][1+w+x] = 80;
+				if(bitmap[array_index]) window->frame[h+y][1+w+x] = 190;
+				else window->frame[h+y][1+w+x] = 80;
 			}
-			frame_buffer[h+y][x+6] = 80;
+			window->frame[h+y][x+6] = 80;
 		}
 		x += 7; // 1 pre & postcursor
 
@@ -410,53 +459,49 @@ int main(void)
   Window window;
   create_window(&window);
 
-
   // Fill the frame buffer
-  init_buffer(window.imgBuff1, window.imgBuff2);
+  //init_buffer(window.imgBuff1, window.imgBuff2);
   HAL_TIM_Base_Start_IT(&htim1);	// start slave first.
-  //HAL_Delay(50);
+  HAL_Delay(50);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);	// start slave first.
-  //HAL_Delay(50);
-  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *) true_buffer[0], horiz_size*vert_size, DAC_ALIGN_8B_R);
-  //HAL_Delay(50);
+  HAL_Delay(50);
+  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *) window.true[0], horiz_size*vert_size, DAC_ALIGN_8B_R);
+  HAL_Delay(50);
   HAL_TIM_Base_Start(&htim4);	// start master timer.
 
   HAL_UART_Receive_IT(&huart1, (uint8_t*) in_buf, 1);
   //clear_buffer();
+
+  // Start the Game
+  game_start(&window, INPUT_ERROR);
+  swap_buffer(&window);
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1){
-//	print_str("Welcome", 0, 0);
-//	print_str("To", 0, 60);
-//	print_str("Tetris!", 0, 120);
-//	print_str("-Yanis J.", 0, 180);
-	//swap_buffer();
-//	HAL_Delay(5000);
-      // process button presses (update game state)
-	int event = process_user_input(&window);
+    // process button presses (update game state)
+	game_input_t event = process_user_input(&window);
 
-	if (event > 0) {
-	  switch (window.game.state) {
-		  case Start:
-			  game_start(&window, event);
-		  break;
-		  case Playing:
-			  // update the game state, and draw to frame buffer
-			  game_playing(&window, event);
-		  break;
-		  case Paused:
-			  game_paused(&window, event);
-		  break;
-	  }
-	  swap_buffer();
-
-//	  refreshScreen(&window);
-//	  // update screen
-//	  update_screen(&window);
+	switch (window.game.state) {
+	  case Start:
+		  game_start(&window, event);
+	  break;
+	  case Playing:
+		  // update the game state, and draw to frame buffer
+		  game_playing(&window, event);
+	  break;
+	  case Paused:
+		  game_paused(&window, event);
+	  break;
+	  case Ended:
+		  game_ended(&window, event);
+	  break;
 	}
+	swap_buffer(&window);
+	//	  // update screen
+	//update_screen(&window);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -936,49 +981,11 @@ game_input_t pop_input_buffer() {
 
 
 
-int process_user_input(Window * window) {
+game_input_t process_user_input(Window * window) {
     //char c = getchar();
     game_input_t c = pop_input_buffer();
     while(c == INPUT_ERROR) c = pop_input_buffer();
-
-    switch (c) {
-        // move left
-        case LEFT:
-            return 1;
-        break;
-        // move right
-        case RIGHT:
-            return 2;
-        break;
-        case DOWN:
-            return 0;
-        break;
-//        case 'q':
-//            return -1;
-//        break;
-        // rotate CC = 4
-        case CCW:
-            return 4;
-        break;
-        // rotate C = 3
-        case CW:
-            return 3;
-        break;
-        // pause game
-        case TOGGLEPAUSE:
-            if (window->game.state == Playing) {
-                window->game.state = Paused;
-            }
-            else {
-                window->game.state = Playing;
-            }
-        break;
-        default:
-        break;
-    }
-
-    // return a value not mapped to any event
-    return 10;
+    return c;
 }
 
 
@@ -997,7 +1004,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 	case 100: // d
 		push_input_buffer(RIGHT);
 		break;
-	case 107: // l ' '?
+	case 108: // l
 		push_input_buffer(CCW);
 		break;
 	case 59: // semicolon
