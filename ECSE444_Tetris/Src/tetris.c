@@ -48,6 +48,12 @@ uint8_t tetromino_collision[]={ 10, 10, 10, 10,
 								10, 10, 10, 10};
 
 
+void tetris_write_points(Window* window) {
+    char point_str[10];
+    sprintf(point_str, "%lu", window->game.points);
+    print_str(window, point_str, 35, 150);
+}
+
 /**
  * @brief populate window game variable with a reset tetris game.
  *
@@ -71,6 +77,7 @@ void tetris_initialize_game(Window * window) {
     window->game.x = 3;
     window->game.y = 0;
     window->game.state = Start;
+    window->game.points = 0;
 
     // initialize the current tetromino
     tetris_update_current_tetromino(window);
@@ -294,7 +301,14 @@ void tetris_draw_endScreen(Window * window) {
 			float x = (((float)IMAGE_HEIGHT)/IMAGE_WIDTH)*(j-IMAGE_X) - (((float)IMAGE_HEIGHT)/2);
 			float rad_head = x*x + y*y;
 			float rad_eyes = (abs(x)-70)*(abs(x)-70) + (y-30)*(y-30);
-			float quad_rad = abs((y+100)+0.01*x*x);
+			float quad_rad;
+			// Happy if we get over 80k :)
+			// Even though that point count may overflow the screen-
+			if (window->game.points < 80,000) {
+				quad_rad = abs((y+100)+0.01*x*x);
+			} else {
+				quad_rad = abs((y+100)-0.01*x*x);
+			}
 			if(rad_head > 150*150 && rad_head < 170*170) {
 				window->frame[i][j] = (uint8_t) 255;
 			} else if (rad_eyes < 20*20) {
@@ -350,7 +364,7 @@ void tetris_finished_tetromino(Window * window) {
 void tetris_detect_rowCompletion(Window * window) {
     // go over board & detect all lines that need to be cleared.
     int rowCompleted[BOARD_HEIGHT];
-
+    int numRowsCompleted = 0;
     for (int row = 0; row < BOARD_HEIGHT; row++) {
         rowCompleted[row] = 1;
         for (int col = 0; col < BOARD_WIDTH; col++) {
@@ -358,6 +372,7 @@ void tetris_detect_rowCompletion(Window * window) {
                 rowCompleted[row] = 0;
             }
         }
+        if(rowCompleted[row]) numRowsCompleted++;
     }
 
     for (int i = 0; i < 4; i++) {
@@ -395,6 +410,23 @@ void tetris_detect_rowCompletion(Window * window) {
             window->game.board[BOARD_WIDTH * row_currently_drawn + col] = EMPTY_BOARD_CHAR;
         }
         row_currently_drawn--;
+    }
+
+    switch(numRowsCompleted) {
+    case 1:
+    	window->game.points += 40;
+    	break;
+    case 2:
+    	window->game.points += 100;
+    	break;
+    case 3:
+    	window->game.points += 300;
+    	break;
+    case 4:
+    	window->game.points += 1200;
+    	break;
+    default:
+    	break;
     }
 }
 

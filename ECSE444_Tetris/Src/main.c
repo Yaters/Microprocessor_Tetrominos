@@ -18,6 +18,7 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "cmsis_os.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -64,6 +65,20 @@ TIM_HandleTypeDef htim8;
 
 UART_HandleTypeDef huart1;
 
+/* Definitions for frameTask */
+osThreadId_t frameTaskHandle;
+const osThreadAttr_t frameTask_attributes = {
+  .name = "frameTask",
+  .stack_size = 500 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
+/* Definitions for soundTask */
+osThreadId_t soundTaskHandle;
+const osThreadAttr_t soundTask_attributes = {
+  .name = "soundTask",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityLow,
+};
 /* USER CODE BEGIN PV */
 
 //Input Storing
@@ -81,7 +96,8 @@ char buf[80] =
 		"                                                                              \n\0";
 char in_buf[2] = "hi";
 
-int paused = 0;
+//int paused = 0;
+Window window;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -95,6 +111,9 @@ static void MX_TIM1_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM8_Init(void);
 static void MX_USART1_UART_Init(void);
+void updateGameLogic(void *argument);
+void soundController(void *argument);
+
 /* USER CODE BEGIN PFP */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim);
 void swap_buffer();
@@ -108,7 +127,6 @@ void print_gameInput(game_input_t input);
 
 
 game_input_t process_user_input(Window * window);
-extern void update_screen(Window* window);
 void game_playing(Window* window, game_input_t event);
 void game_paused(Window * window, game_input_t event);
 void game_start(Window * window, game_input_t event);
@@ -165,27 +183,6 @@ void print_gameInput(game_input_t input) {
 	_print();
 }
 
-// only used for testing & visual output on CMD
-extern void update_screen(Window * window) {
-//    system("cls");
-//    if (window->curBuff == 0) {
-//        for (int row = 0; row < FRAME_HEIGHT; row++) {
-//            for (int col = 0; col < FRAME_WIDTH; col++) {
-//                printf("%c", window->imgBuff1[row * FRAME_WIDTH + col]);
-//            }
-//            printf("\n");
-//        }
-//    }
-//    else {
-//        for (int row = 0; row < FRAME_HEIGHT; row++) {
-//            for (int col = 0; col < FRAME_WIDTH; col++) {
-//                printf("%c", window->imgBuff2[row * FRAME_WIDTH + col]);
-//            }
-//            printf("\n");
-//        }
-//    }
-
-}
 
 // create window, as well as initializes tetris game
 void create_window(Window * window) {
@@ -262,6 +259,7 @@ void game_playing(Window* window, game_input_t event) {
         drawRect_color(window, 0, 0, window->width, window->height, HORIZ_SCALE, VERT_SCALE, 150);
         drawRect(window, BOARD_X, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT, HORIZ_SCALE, VERT_SCALE, window->game.board);
         drawRect(window, BOARD_X + window->game.x, BOARD_Y + window->game.y, 4, 4, HORIZ_SCALE, VERT_SCALE, tetromino_current);
+        tetris_write_points(window);
     }
 
 }
@@ -279,8 +277,8 @@ void game_paused(Window* window, game_input_t event) {
     } else {
         // draw game board
         drawRect_color(window, 0, 0, window->width, window->height, 4, 10, 50);
-        print_str(window, "Press Space", 2, 00);
-        print_str(window, "To Continue", 2, 60);
+        print_str(window, "Press Space", 2, 10);
+        print_str(window, "To Continue", 2, 70);
     }
 }
 
@@ -296,10 +294,10 @@ void game_start(Window* window, game_input_t event) {
     } else {
         // draw game board
         drawRect_color(window, 0, 0, window->width, window->height, 4, 10, 80);
-        print_str(window, "Welcome To", 2, 0);
-        print_str(window, "Tetris!", 20, 100);
-        print_str(window, "Press Space", 2, 200);
-        print_str(window, "To Continue", 2, 260);
+        print_str(window, "Welcome To", 2, 10);
+        print_str(window, "Tetris!", 20, 110);
+        print_str(window, "Press Space", 2, 210);
+        print_str(window, "To Continue", 2, 270);
     }
 }
 
@@ -320,56 +318,6 @@ void game_ended(Window* window, game_input_t event) {
 
 }
 
-
-//// Fill buffers with testing stuff
-//void init_buffer(uint8_t* tmp_buffer, uint8_t* tmp2_buffer) {
-//  // Allocate buffers
-//  // Continuous memory alloc
-//  frame_buffer = (uint8_t**) malloc(sizeof(uint8_t*) * vert_size);
-//  true_buffer  = (uint8_t**) malloc(sizeof(uint8_t*) * vert_size);
-//
-//  // Fill them with data, start with increasing grayscale (and decreasing for back)
-//  for(int i = 0; i < vert_size; i++) {
-//	  // Point to place in continuous mem location
-//	  frame_buffer[i] = tmp_buffer  + i*horiz_size;
-//	  true_buffer[i] = tmp2_buffer  + i*horiz_size;
-//	  for(int j = 0; j < horiz_size; j++) {
-//		  // Back porch Horizontal || Front Porch Horizontal
-////		  if (j < 6 || j >= 85) {
-//		  if (j < 3 || j >= 82) {
-//			  frame_buffer[i][j] = (uint8_t) 0;
-//			  true_buffer[i][j] = (uint8_t) 0;
-//		  }
-//		  // Back porch Vertical || Front Porch Vertical
-//		  else if (i < 60 || i >= 410) {
-//			  true_buffer[i][j] = (uint8_t) 0;
-//		  }
-//		  // Color based on x pos
-//		  else {
-////			  float y = 350-(i-60) - 175;
-////			  float x = 4.48718*(j-3) - 175;
-////			  float rad_head = x*x + y*y;
-////			  float rad_eyes = (abs(x)-70)*(abs(x)-70) + (y-30)*(y-30);
-////			  float quad_rad = abs((y+100)+0.01*x*x);
-////			  if(rad_head > 150*150 && rad_head < 170*170) {
-////				  true_buffer[i][j] = (uint8_t) 255;
-////			  } else if (rad_eyes < 20*20) {
-////				  true_buffer[i][j] = (uint8_t) 255;
-////			  } else if (quad_rad < 10 && y < -55) {
-////				  true_buffer[i][j] = (uint8_t) 255;
-////			  } else {
-////				  true_buffer[i][j] = (uint8_t) 0;
-////			  }
-////			  frame_buffer[i][j] = (uint8_t) (2.8*(i%44)+12*(j%10));
-//			  //true_buffer[i][j] = (uint8_t) (5.6*(i%22)+6*(j%20));
-//		  }
-//
-//
-//	  }
-//  }
-//}
-
-
 /**
  * @brief Swap the image buffers.
  *
@@ -388,25 +336,26 @@ void swap_buffer(Window * window) {
 void print_str(Window * window, char* buffer, int x, int y) {
 
 	x += 3; // Avoid back porch
-	y += 65;
+	y += 70;
 
 	char cur_char = buffer[0];
 	if(cur_char >= 97) cur_char -= 32;
 	int i = 0;
 	while(cur_char != '\0') {
 		char* bitmap = font_map[cur_char - 32]; // 32 = ' '
-		for (int h = 0; h < 50; h++) {
-			window->frame[h+y][x] = 80; // Precursor
-			//x += 1;
-			for(int w = 0; w < 5; w++) {
-				int array_index = (h/10) * 5 + w; // h/5 = floor division, to stretch
-				if(bitmap[array_index]) window->frame[h+y][1+w+x] = 190;
-				else window->frame[h+y][1+w+x] = 80;
+		// y-value precursor
+		for(int h = 0; h < 70; h++) {
+			for (int w = 0; w < 7; w++) {
+				// Pre- and Post- empty space on x & y
+				if (h < 10 || w == 0 || h >= 60 || w == 6) {
+					window->frame[y+h][x+w] = 80;
+					continue;
+				}
+				int array_index = ((h-10)/10) * 5 + (w-1); // h/10 = floor division, to stretch
+				window->frame[y+h][x+w] = bitmap[array_index] ? 190 : 80;
 			}
-			window->frame[h+y][x+6] = 80;
 		}
-		x += 7; // 1 pre & postcursor
-
+		x += 7; // 1 pre, 5 char, 1 post
 		i++;
 		cur_char = buffer[i];
 		//'a' -> 'A' for example
@@ -456,52 +405,64 @@ int main(void)
   MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
 
-  Window window;
   create_window(&window);
 
   // Fill the frame buffer
   //init_buffer(window.imgBuff1, window.imgBuff2);
   HAL_TIM_Base_Start_IT(&htim1);	// start slave first.
-  HAL_Delay(50);
+  HAL_Delay(100);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);	// start slave first.
-  HAL_Delay(50);
+  HAL_Delay(100);
   HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *) window.true[0], horiz_size*vert_size, DAC_ALIGN_8B_R);
-  HAL_Delay(50);
+  HAL_Delay(100);
   HAL_TIM_Base_Start(&htim4);	// start master timer.
-
+  HAL_Delay(100);
   HAL_UART_Receive_IT(&huart1, (uint8_t*) in_buf, 1);
-  //clear_buffer();
-
-  // Start the Game
-  game_start(&window, INPUT_ERROR);
-  swap_buffer(&window);
-
+  HAL_Delay(100);
   /* USER CODE END 2 */
 
+  /* Init scheduler */
+  osKernelInitialize();
+
+  /* USER CODE BEGIN RTOS_MUTEX */
+  /* add mutexes, ... */
+  /* USER CODE END RTOS_MUTEX */
+
+  /* USER CODE BEGIN RTOS_SEMAPHORES */
+  /* add semaphores, ... */
+  /* USER CODE END RTOS_SEMAPHORES */
+
+  /* USER CODE BEGIN RTOS_TIMERS */
+  /* start timers, add new ones, ... */
+  /* USER CODE END RTOS_TIMERS */
+
+  /* USER CODE BEGIN RTOS_QUEUES */
+  /* add queues, ... */
+  /* USER CODE END RTOS_QUEUES */
+
+  /* Create the thread(s) */
+  /* creation of frameTask */
+  frameTaskHandle = osThreadNew(updateGameLogic, NULL, &frameTask_attributes);
+
+  /* creation of soundTask */
+  soundTaskHandle = osThreadNew(soundController, NULL, &soundTask_attributes);
+
+  /* USER CODE BEGIN RTOS_THREADS */
+  /* add threads, ... */
+  /* USER CODE END RTOS_THREADS */
+
+  /* USER CODE BEGIN RTOS_EVENTS */
+  /* add events, ... */
+  /* USER CODE END RTOS_EVENTS */
+
+  /* Start scheduler */
+  osKernelStart();
+
+  /* We should never get here as control is now taken by the scheduler */
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1){
-    // process button presses (update game state)
-	game_input_t event = process_user_input(&window);
 
-	switch (window.game.state) {
-	  case Start:
-		  game_start(&window, event);
-	  break;
-	  case Playing:
-		  // update the game state, and draw to frame buffer
-		  game_playing(&window, event);
-	  break;
-	  case Paused:
-		  game_paused(&window, event);
-	  break;
-	  case Ended:
-		  game_ended(&window, event);
-	  break;
-	}
-	swap_buffer(&window);
-	//	  // update screen
-	//update_screen(&window);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -911,10 +872,10 @@ static void MX_DMA_Init(void)
 
   /* DMA interrupt init */
   /* DMA1_Channel1_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
   /* DMA1_Channel2_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 0, 0);
+  HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 5, 0);
   HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
 
 }
@@ -952,28 +913,16 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
-{
-//	if (htim->Instance == TIM1) {
-		vert_count = (vert_count + 1) % 449;
-		if(vert_count >= 447) {
-			HAL_GPIO_WritePin(Vert_Synch_GPIO_Port, Vert_Synch_Pin, GPIO_PIN_RESET);
-		} else {
-			HAL_GPIO_WritePin(Vert_Synch_GPIO_Port, Vert_Synch_Pin, GPIO_PIN_SET);
-		}
-//	}
-}
-
-
-
 void push_input_buffer(game_input_t input) {
+	// Can't lock the queue, don't need one since this is called by an interrupt
 	input_buffer[buffer_push] = input;
 	buffer_push = (buffer_push + 1) % INPUT_BUFFER_SIZE;
 }
 
 game_input_t pop_input_buffer() {
-	if(buffer_pop == buffer_push) return INPUT_ERROR;
+	if(buffer_pop == buffer_push) {
+		return INPUT_ERROR;
+	}
 	game_input_t ret = input_buffer[buffer_pop];
 	buffer_pop = (buffer_pop + 1) % INPUT_BUFFER_SIZE;
 	return ret;
@@ -982,7 +931,6 @@ game_input_t pop_input_buffer() {
 
 
 game_input_t process_user_input(Window * window) {
-    //char c = getchar();
     game_input_t c = pop_input_buffer();
     while(c == INPUT_ERROR) c = pop_input_buffer();
     return c;
@@ -991,9 +939,7 @@ game_input_t process_user_input(Window * window) {
 
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
-//	print_inbuf();
 	char c = ((huart)->Instance)->RDR;
-//	swap_buffer();
 	switch (c) {
 	case 53: // 5 as in the key "5" (to test if working)
 		hello_world();
@@ -1015,7 +961,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 		break;
 	case 32: // space
 		push_input_buffer(TOGGLEPAUSE);
-		//togglePause();
 	default:
 		break;
 	}
@@ -1024,6 +969,92 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 
 
 /* USER CODE END 4 */
+
+/* USER CODE BEGIN Header_updateGameLogic */
+/**
+  * @brief  Function implementing the frameTask thread.
+  * @param  argument: Not used
+  * @retval None
+  */
+/* USER CODE END Header_updateGameLogic */
+void updateGameLogic(void *argument)
+{
+  /* USER CODE BEGIN 5 */
+	// Start the Game
+	game_start(&window, INPUT_ERROR);
+	swap_buffer(&window);
+
+	/* Infinite loop */
+	for(;;) {
+		//osDelay(1);
+	    // process button presses (update game state)
+		game_input_t event = process_user_input(&window);
+
+		switch (window.game.state) {
+		  case Start:
+			  game_start(&window, event);
+		  break;
+		  case Playing:
+			  // update the game state, and draw to frame buffer
+			  game_playing(&window, event);
+		  break;
+		  case Paused:
+			  game_paused(&window, event);
+		  break;
+		  case Ended:
+			  game_ended(&window, event);
+		  break;
+		}
+		swap_buffer(&window);
+	}
+  /* USER CODE END 5 */
+}
+
+/* USER CODE BEGIN Header_soundController */
+/**
+* @brief Function implementing the soundTask thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_soundController */
+void soundController(void *argument)
+{
+  /* USER CODE BEGIN soundController */
+  /* Infinite loop */
+  for(;;)
+  {
+    osDelay(1);
+  }
+  /* USER CODE END soundController */
+}
+
+/**
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM6 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  /* USER CODE BEGIN Callback 0 */
+
+  /* USER CODE END Callback 0 */
+  if (htim->Instance == TIM6) {
+    HAL_IncTick();
+  }
+  /* USER CODE BEGIN Callback 1 */
+  else if (htim->Instance == TIM1) {
+	vert_count = (vert_count + 1) % 449;
+	if(vert_count >= 447) {
+		HAL_GPIO_WritePin(Vert_Synch_GPIO_Port, Vert_Synch_Pin, GPIO_PIN_RESET);
+	} else {
+		HAL_GPIO_WritePin(Vert_Synch_GPIO_Port, Vert_Synch_Pin, GPIO_PIN_SET);
+	}
+  }
+  /* USER CODE END Callback 1 */
+}
 
 /**
   * @brief  This function is executed in case of error occurrence.

@@ -3,8 +3,9 @@
 
 #include "main.h"
 #include <stdlib.h>
+#include <stdio.h>
 
-#define BOARD_X 5
+#define BOARD_X 1
 #define BOARD_Y 5
 
 #define BOARD_WIDTH 10   //scale= * 4
@@ -17,7 +18,7 @@
 #define IMAGE_WIDTH 80
 #define IMAGE_HEIGHT 350
 #define IMAGE_X 2
-#define IMAGE_Y 60
+#define IMAGE_Y 70
 
 // enums
 enum consoleState{Start, Playing, Paused, Ended};
@@ -27,6 +28,7 @@ typedef struct Game {
 	uint8_t const * tetromino;
 	uint8_t const * swapTetromino;
 	uint8_t const * nextTetromino;
+	long unsigned int points;
     short rotation;
     int x;
     int y;
@@ -63,6 +65,8 @@ void tetris_finished_tetromino(Window * window);
 void tetris_detect_rowCompletion(Window * window);
 int tetris_validate_position(Window * window, int x_offset, int y_offset);
 void tetris_draw_endScreen(Window * window);
+void tetris_write_points(Window* window);
+extern void print_str(Window* window, char* buffer, int x, int y);
 
 
 
