@@ -41,8 +41,8 @@
 
 #define INPUT_BUFFER_SIZE 5
 
-#define HORIZ_SCALE 3
-#define VERT_SCALE 12
+#define HORIZ_SCALE 2
+#define VERT_SCALE 13
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -219,6 +219,9 @@ void game_playing(Window* window, game_input_t event) {
     	window->game.state = Paused;
     	game_paused(window, INPUT_ERROR);
     } else {
+    	// Draw background before anything
+    	tetris_drawBackground(window);
+
         switch (event) {
             // move left = 1
             case LEFT:
@@ -256,7 +259,6 @@ void game_playing(Window* window, game_input_t event) {
         }
 
         // draw game board
-        drawRect_color(window, 0, 0, window->width, window->height, HORIZ_SCALE, VERT_SCALE, 150);
         drawRect(window, BOARD_X, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT, HORIZ_SCALE, VERT_SCALE, window->game.board);
         drawRect(window, BOARD_X + window->game.x, BOARD_Y + window->game.y, 4, 4, HORIZ_SCALE, VERT_SCALE, tetromino_current);
         tetris_write_points(window);
@@ -311,7 +313,7 @@ void game_ended(Window* window, game_input_t event) {
 		window->game.state = Start;
 		game_start(window, INPUT_ERROR);
 	} else {
-		tetris_draw_endScreen(window);
+		tetris_drawEndScreen(window);
 	}
 
 

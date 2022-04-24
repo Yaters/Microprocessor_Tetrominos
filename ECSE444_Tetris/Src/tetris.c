@@ -48,10 +48,16 @@ uint8_t tetromino_collision[]={ 10, 10, 10, 10,
 								10, 10, 10, 10};
 
 
+/**
+ * @brief Write points to the screen while playing.
+ *
+ * @param window window
+ */
 void tetris_write_points(Window* window) {
     char point_str[10];
     sprintf(point_str, "%lu", window->game.points);
-    print_str(window, point_str, 35, 150);
+    print_str(window, "Points:", 25, 60);
+    print_str(window, point_str, 25, 150);
 }
 
 /**
@@ -66,9 +72,7 @@ void tetris_initialize_game(Window * window) {
     }
 
     // seed random val
-    // TODO: Make this rand again
-//    time_t t;
-//    srand((unsigned) time(&t));
+    srand((unsigned) HAL_GetTick());
 
     // initialize game state (tetromino, rotation, next tetromino, x, y, game state)
     window->game.rotation = 0;
@@ -89,8 +93,7 @@ void tetris_initialize_game(Window * window) {
  * @return const char* pointer to random tetromino piece
  */
 const uint8_t * tetris_get_next_tetromino() {
-	// TODO: Make this rand again
-    switch (0 % 7) {
+    switch (rand() % 7) {
         case 0:
             return tetromino_I;
         break;
@@ -293,7 +296,7 @@ int tetris_validate_position(Window * window, int x_offset, int y_offset) {
  * Is responsible for detecting an END of game
  * @param window tetris game window w/ tetromino data we want to validate
  */
-void tetris_draw_endScreen(Window * window) {
+void tetris_drawEndScreen(Window * window) {
 	// Draw a smiley face
 	for(int i = IMAGE_Y; i < IMAGE_HEIGHT + IMAGE_Y; i++) {
 		for(int j = IMAGE_X; j < IMAGE_WIDTH + IMAGE_X; j++) {
@@ -304,7 +307,7 @@ void tetris_draw_endScreen(Window * window) {
 			float quad_rad;
 			// Happy if we get over 80k :)
 			// Even though that point count may overflow the screen-
-			if (window->game.points < 80,000) {
+			if (window->game.points < 80000) {
 				quad_rad = abs((y+100)+0.01*x*x);
 			} else {
 				quad_rad = abs((y+100)-0.01*x*x);
@@ -339,7 +342,7 @@ void tetris_finished_tetromino(Window * window) {
                 // check to see if game over!
                 if (row < 4) {
                     tetris_initialize_game(window);
-                    tetris_draw_endScreen(window);
+                    tetris_drawEndScreen(window);
                     window->game.state = Ended;
                 }
             }
@@ -486,3 +489,23 @@ void drawRect_color(Window* window, int x_start, int y_start, int width, int hei
         }
     }
 }
+
+/**
+ * @brief draw the background - a series of sine waves
+ *
+ * @param window window to draw to
+ */
+void tetris_drawBackground(Window* window) {
+	float y_repeat = IMAGE_HEIGHT / 5.4;
+	for (int row = IMAGE_Y; row < IMAGE_HEIGHT + IMAGE_Y; row++) {
+	        for (int col = IMAGE_X; col < IMAGE_WIDTH + IMAGE_X; col++) {
+	        	if (col < IMAGE_X + BOARD_X + BOARD_WIDTH * 2 + 5) {
+	        		window->frame[row][col] = 100;
+	        	} else {
+		        	float sin_diff = abs(10.0 * arm_sin_f32(0.5 * col) + 9.0 - fmod(row, y_repeat) );
+		        	window->frame[row][col] = (sin_diff < 4.0) ? 50 : 150;
+	        	}
+
+	        }
+	    }
+ }

@@ -5,11 +5,15 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#define BOARD_X 1
-#define BOARD_Y 5
 
-#define BOARD_WIDTH 10   //scale= * 4
-#define BOARD_HEIGHT 24  //scale= * 10
+#define ARM_MATH_CM4
+#include "arm_math.h"
+
+#define BOARD_X 1
+#define BOARD_Y 2
+
+#define BOARD_WIDTH 10   //scaled
+#define BOARD_HEIGHT 24  //scaled
 
 #define EMPTY_BOARD_CHAR 5
 
@@ -64,8 +68,6 @@ int tetris_move_down(Window * window);
 void tetris_finished_tetromino(Window * window);
 void tetris_detect_rowCompletion(Window * window);
 int tetris_validate_position(Window * window, int x_offset, int y_offset);
-void tetris_draw_endScreen(Window * window);
-void tetris_write_points(Window* window);
 extern void print_str(Window* window, char* buffer, int x, int y);
 
 
@@ -74,6 +76,9 @@ extern void print_str(Window* window, char* buffer, int x, int y);
 // Window Functions
 
 // function prototypes
+void tetris_write_points(Window* window);
+void tetris_drawBackground(Window* window);
+void tetris_drawEndScreen(Window * window);
 void drawRect(Window* window, int x_start, int y_start, int width, int height, int scaling_h, int scaling_v, uint8_t* data);
 void drawRect_color(Window* window, int x_start, int y_start, int width, int height, int scaling_h, int scaling_v, uint8_t color);
 void refreshScreen(Window * window);
