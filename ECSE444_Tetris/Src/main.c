@@ -258,10 +258,15 @@ void game_playing(Window* window, game_input_t event) {
             break;
         }
 
-        // draw game board
-        drawRect(window, BOARD_X, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT, HORIZ_SCALE, VERT_SCALE, window->game.board);
-        drawRect(window, BOARD_X + window->game.x, BOARD_Y + window->game.y, 4, 4, HORIZ_SCALE, VERT_SCALE, tetromino_current);
-        tetris_write_points(window);
+        // draw game board if still playing
+        if (window->game.state == Playing ) {
+            drawRect(window, BOARD_X, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT, HORIZ_SCALE, VERT_SCALE, window->game.board);
+            drawRect(window, BOARD_X + window->game.x, BOARD_Y + window->game.y, 4, 4, HORIZ_SCALE, VERT_SCALE, tetromino_current);
+            // Attempt at next tetromino
+            //drawRect(window, 2*BOARD_X + BOARD_WIDTH, BOARD_Y+BOARD_HEIGHT, 4, 4, HORIZ_SCALE, VERT_SCALE, window->game.nextTetromino);
+            tetris_write_points(window);
+        }
+
     }
 
 }

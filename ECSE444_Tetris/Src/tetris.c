@@ -56,8 +56,8 @@ uint8_t tetromino_collision[]={ 10, 10, 10, 10,
 void tetris_write_points(Window* window) {
     char point_str[10];
     sprintf(point_str, "%lu", window->game.points);
-    print_str(window, "Points:", 25, 60);
-    print_str(window, point_str, 25, 150);
+    print_str(window, "Points:", 27, 60);
+    print_str(window, point_str, 27, 150);
 }
 
 /**

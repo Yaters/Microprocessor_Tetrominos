@@ -9,11 +9,11 @@
 #define ARM_MATH_CM4
 #include "arm_math.h"
 
-#define BOARD_X 1
+#define BOARD_X 2
 #define BOARD_Y 2
 
-#define BOARD_WIDTH 10   //scaled
-#define BOARD_HEIGHT 24  //scaled
+#define BOARD_WIDTH 10   //graphics scaled later
+#define BOARD_HEIGHT 24  //graphics scaled later
 
 #define EMPTY_BOARD_CHAR 5
 
