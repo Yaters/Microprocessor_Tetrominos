@@ -496,14 +496,16 @@ void drawRect_color(Window* window, int x_start, int y_start, int width, int hei
  * @param window window to draw to
  */
 void tetris_drawBackground(Window* window) {
-	float y_repeat = IMAGE_HEIGHT / 5.4;
+	float y_repeat = IMAGE_HEIGHT / 9.0;
 	for (int row = IMAGE_Y; row < IMAGE_HEIGHT + IMAGE_Y; row++) {
 	        for (int col = IMAGE_X; col < IMAGE_WIDTH + IMAGE_X; col++) {
 	        	if (col < IMAGE_X + BOARD_X + BOARD_WIDTH * 2 + 5) {
-	        		window->frame[row][col] = 100;
+	        		window->frame[row][col] = 125;
 	        	} else {
-		        	float sin_diff = abs(10.0 * arm_sin_f32(0.5 * col) + 9.0 - fmod(row, y_repeat) );
-		        	window->frame[row][col] = (sin_diff < 4.0) ? 50 : 150;
+
+		        	float sin_diff = fabs(9.0 * arm_sin_f32(0.9 * col) + 9.0 - fmod(row, y_repeat) );
+		        	window->frame[row][col] = (sin_diff < 4.0) ? 20 : 70;
+		        	if( (col+2) % 7 == 0) window->frame[row][col] = 20;
 	        	}
 
 	        }

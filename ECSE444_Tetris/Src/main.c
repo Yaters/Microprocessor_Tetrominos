@@ -27,6 +27,7 @@
 #include "fontlib.h"
 #include "graphics.h"
 #include "tetris.h"
+#include "tetristhemequiet.c"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -61,7 +62,7 @@ TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
-TIM_HandleTypeDef htim8;
+TIM_HandleTypeDef htim15;
 
 UART_HandleTypeDef huart1;
 
@@ -87,6 +88,7 @@ game_input_t input_buffer[INPUT_BUFFER_SIZE];
 int buffer_pop = 0;
 int buffer_push = 0; // pop = push then overflow or empty
 
+int fall_rate = 1000;
 
 int vert_count = 0;
 static const char empty[80] =
@@ -96,8 +98,12 @@ char buf[80] =
 		"                                                                              \n\0";
 char in_buf[2] = "hi";
 
-//int paused = 0;
 Window window;
+
+
+uint16_t *wave_data = (uint16_t*) _actetristhemequiet;
+uint32_t data_size = 25400;
+int offset = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -109,8 +115,8 @@ static void MX_TIM4_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM1_Init(void);
 static void MX_TIM3_Init(void);
-static void MX_TIM8_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_TIM15_Init(void);
 void updateGameLogic(void *argument);
 void soundController(void *argument);
 
@@ -124,6 +130,10 @@ void _print();
 void clear();
 void hello_world();
 void print_gameInput(game_input_t input);
+void startMusic();
+void stopMusic();
+void pauseMusic();
+void resumeMusic();
 
 
 game_input_t process_user_input(Window * window);
@@ -216,6 +226,9 @@ void create_window(Window * window) {
  */
 void game_playing(Window* window, game_input_t event) {
     if (event == TOGGLEPAUSE) {
+    	// End music
+		pauseMusic();
+
     	window->game.state = Paused;
     	game_paused(window, INPUT_ERROR);
     } else {
@@ -265,6 +278,7 @@ void game_playing(Window* window, game_input_t event) {
             // Attempt at next tetromino
             //drawRect(window, 2*BOARD_X + BOARD_WIDTH, BOARD_Y+BOARD_HEIGHT, 4, 4, HORIZ_SCALE, VERT_SCALE, window->game.nextTetromino);
             tetris_write_points(window);
+            fall_rate = (int) (900 * exp(-0.0002 * window->game.points) + 100);
         }
 
     }
@@ -279,11 +293,13 @@ void game_playing(Window* window, game_input_t event) {
  */
 void game_paused(Window* window, game_input_t event) {
     if (event == TOGGLEPAUSE) {
+    	// Start Music
+    	resumeMusic();
     	window->game.state = Playing;
     	game_playing(window, INPUT_ERROR);
     } else {
         // draw game board
-        drawRect_color(window, 0, 0, window->width, window->height, 4, 10, 50);
+        drawRect_color(window, 0, 0, window->width, window->height, 4, 10, 100);
         print_str(window, "Press Space", 2, 10);
         print_str(window, "To Continue", 2, 70);
     }
@@ -296,11 +312,13 @@ void game_paused(Window* window, game_input_t event) {
  */
 void game_start(Window* window, game_input_t event) {
     if (event == TOGGLEPAUSE) {
+    	startMusic();
+
     	window->game.state = Playing;
     	game_playing(window, INPUT_ERROR);
     } else {
         // draw game board
-        drawRect_color(window, 0, 0, window->width, window->height, 4, 10, 80);
+        drawRect_color(window, 0, 0, window->width, window->height, 4, 10, 100);
         print_str(window, "Welcome To", 2, 10);
         print_str(window, "Tetris!", 20, 110);
         print_str(window, "Press Space", 2, 210);
@@ -315,9 +333,12 @@ void game_start(Window* window, game_input_t event) {
  */
 void game_ended(Window* window, game_input_t event) {
 	if (event == TOGGLEPAUSE) {
+		fall_rate = 1000;
 		window->game.state = Start;
 		game_start(window, INPUT_ERROR);
 	} else {
+		stopMusic();
+
 		tetris_drawEndScreen(window);
 	}
 
@@ -355,11 +376,11 @@ void print_str(Window * window, char* buffer, int x, int y) {
 			for (int w = 0; w < 7; w++) {
 				// Pre- and Post- empty space on x & y
 				if (h < 10 || w == 0 || h >= 60 || w == 6) {
-					window->frame[y+h][x+w] = 80;
+					window->frame[y+h][x+w] = 100;
 					continue;
 				}
 				int array_index = ((h-10)/10) * 5 + (w-1); // h/10 = floor division, to stretch
-				window->frame[y+h][x+w] = bitmap[array_index] ? 190 : 80;
+				window->frame[y+h][x+w] = bitmap[array_index] ? 170 : 100;
 			}
 		}
 		x += 7; // 1 pre, 5 char, 1 post
@@ -368,6 +389,35 @@ void print_str(Window * window, char* buffer, int x, int y) {
 		//'a' -> 'A' for example
 		if(cur_char >= 97) cur_char -= 32;
 	}
+}
+
+void stopMusic() {
+	// End Music
+	HAL_TIM_Base_Stop(&htim15);
+	HAL_Delay(50);
+	HAL_DAC_Stop_DMA(&hdac1, DAC_CHANNEL_2);
+	HAL_TIM_Base_Stop_IT(&htim3);
+
+	//htim3.Instance->APR = 0;
+	//htim15.Instance->APR = 0;
+}
+
+void startMusic() {
+	// Start Music
+	HAL_TIM_Base_Start_IT(&htim3);
+	HAL_Delay(100);
+	HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_2,
+			(uint16_t*) (wave_data + offset * data_size), data_size,
+			DAC_ALIGN_12B_R);
+
+	HAL_TIM_Base_Start(&htim15);
+}
+
+void pauseMusic() {
+	HAL_TIM_Base_Stop(&htim15);
+}
+void resumeMusic() {
+	HAL_TIM_Base_Start(&htim15);
 }
 /* USER CODE END 0 */
 
@@ -408,8 +458,8 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM1_Init();
   MX_TIM3_Init();
-  MX_TIM8_Init();
   MX_USART1_UART_Init();
+  MX_TIM15_Init();
   /* USER CODE BEGIN 2 */
 
   create_window(&window);
@@ -563,7 +613,7 @@ static void MX_DAC1_Init(void)
   }
   /** DAC channel OUT2 config
   */
-  sConfig.DAC_Trigger = DAC_TRIGGER_T8_TRGO;
+  sConfig.DAC_Trigger = DAC_TRIGGER_T15_TRGO;
   if (HAL_DAC_ConfigChannel(&hdac1, &sConfig, DAC_CHANNEL_2) != HAL_OK)
   {
     Error_Handler();
@@ -694,24 +744,25 @@ static void MX_TIM3_Init(void)
 
   /* USER CODE END TIM3_Init 0 */
 
-  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_SlaveConfigTypeDef sSlaveConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
 
   /* USER CODE BEGIN TIM3_Init 1 */
 
   /* USER CODE END TIM3_Init 1 */
   htim3.Instance = TIM3;
-  htim3.Init.Prescaler = 9999;
+  htim3.Init.Prescaler = 0;
   htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim3.Init.Period = 25400;
+  htim3.Init.Period = 25399;
   htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
   {
     Error_Handler();
   }
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  sSlaveConfig.SlaveMode = TIM_SLAVEMODE_TRIGGER;
+  sSlaveConfig.InputTrigger = TIM_TS_ITR2;
+  if (HAL_TIM_SlaveConfigSynchro(&htim3, &sSlaveConfig) != HAL_OK)
   {
     Error_Handler();
   }
@@ -722,7 +773,7 @@ static void MX_TIM3_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN TIM3_Init 2 */
-
+  TIM3->SMCR = TIM_TS_ITR2 | TIM_SMCR_SMS_0 | TIM_SMCR_SMS_1 | TIM_SMCR_SMS_2;
   /* USER CODE END TIM3_Init 2 */
 
 }
@@ -773,49 +824,48 @@ static void MX_TIM4_Init(void)
 }
 
 /**
-  * @brief TIM8 Initialization Function
+  * @brief TIM15 Initialization Function
   * @param None
   * @retval None
   */
-static void MX_TIM8_Init(void)
+static void MX_TIM15_Init(void)
 {
 
-  /* USER CODE BEGIN TIM8_Init 0 */
+  /* USER CODE BEGIN TIM15_Init 0 */
 
-  /* USER CODE END TIM8_Init 0 */
+  /* USER CODE END TIM15_Init 0 */
 
   TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_MasterConfigTypeDef sMasterConfig = {0};
 
-  /* USER CODE BEGIN TIM8_Init 1 */
+  /* USER CODE BEGIN TIM15_Init 1 */
 
-  /* USER CODE END TIM8_Init 1 */
-  htim8.Instance = TIM8;
-  htim8.Init.Prescaler = 0;
-  htim8.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim8.Init.Period = 10000;
-  htim8.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim8.Init.RepetitionCounter = 0;
-  htim8.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-  if (HAL_TIM_Base_Init(&htim8) != HAL_OK)
+  /* USER CODE END TIM15_Init 1 */
+  htim15.Instance = TIM15;
+  htim15.Init.Prescaler = 0;
+  htim15.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim15.Init.Period = 9999;
+  htim15.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim15.Init.RepetitionCounter = 0;
+  htim15.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim15) != HAL_OK)
   {
     Error_Handler();
   }
   sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim8, &sClockSourceConfig) != HAL_OK)
+  if (HAL_TIM_ConfigClockSource(&htim15, &sClockSourceConfig) != HAL_OK)
   {
     Error_Handler();
   }
   sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
-  sMasterConfig.MasterOutputTrigger2 = TIM_TRGO2_UPDATE;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim8, &sMasterConfig) != HAL_OK)
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim15, &sMasterConfig) != HAL_OK)
   {
     Error_Handler();
   }
-  /* USER CODE BEGIN TIM8_Init 2 */
+  /* USER CODE BEGIN TIM15_Init 2 */
 
-  /* USER CODE END TIM8_Init 2 */
+  /* USER CODE END TIM15_Init 2 */
 
 }
 
@@ -957,7 +1007,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 	case 100: // d
 		push_input_buffer(RIGHT);
 		break;
-	case 108: // l
+	case 107: // k
 		push_input_buffer(CCW);
 		break;
 	case 59: // semicolon
@@ -973,7 +1023,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart) {
 	}
 	HAL_UART_Receive_IT(&huart1, (uint8_t*) in_buf, 1);
 }
-
 
 /* USER CODE END 4 */
 
@@ -1052,14 +1101,22 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
     HAL_IncTick();
   }
   /* USER CODE BEGIN Callback 1 */
-  else if (htim->Instance == TIM1) {
+  if (htim->Instance == TIM6) {
+    if (HAL_GetTick() % fall_rate == 0) {
+    	push_input_buffer(DOWN);
+    }
+  } else if (htim->Instance == TIM1) {
 	vert_count = (vert_count + 1) % 449;
 	if(vert_count >= 447) {
 		HAL_GPIO_WritePin(Vert_Synch_GPIO_Port, Vert_Synch_Pin, GPIO_PIN_RESET);
 	} else {
 		HAL_GPIO_WritePin(Vert_Synch_GPIO_Port, Vert_Synch_Pin, GPIO_PIN_SET);
 	}
-  }
+  } else if (htim->Instance == TIM3) {
+	    HAL_TIM_Base_Start_IT(&htim3);
+		offset = (offset + 1) % 4;
+		hdac1.DMA_Handle2->Instance->CMAR = (uint32_t) (wave_data + offset * data_size);
+	}
   /* USER CODE END Callback 1 */
 }
 

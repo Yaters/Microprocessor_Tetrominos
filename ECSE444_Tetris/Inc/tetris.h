@@ -1,7 +1,7 @@
 #ifndef __TETRIS_H
 #define __TETRIS_H
 
-#include "main.h"
+//#include "main.h"
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -13,9 +13,9 @@
 #define BOARD_Y 2
 
 #define BOARD_WIDTH 10   //graphics scaled later
-#define BOARD_HEIGHT 24  //graphics scaled later
+#define BOARD_HEIGHT 20  //graphics scaled later
 
-#define EMPTY_BOARD_CHAR 5
+#define EMPTY_BOARD_CHAR 100
 
 #define FRAME_WIDTH 100
 #define FRAME_HEIGHT 499
