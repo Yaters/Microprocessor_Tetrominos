@@ -33,6 +33,7 @@ typedef struct Game {
 	uint8_t const * swapTetromino;
 	uint8_t const * nextTetromino;
 	long unsigned int points;
+	unsigned int rows_cleared;
     short rotation;
     int x;
     int y;

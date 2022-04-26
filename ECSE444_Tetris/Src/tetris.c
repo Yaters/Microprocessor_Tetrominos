@@ -56,8 +56,7 @@ uint8_t tetromino_collision[]={ 10, 10, 10, 10,
 void tetris_write_points(Window* window) {
     char point_str[10];
     sprintf(point_str, "%lu", window->game.points);
-    print_str(window, "Points:", 27, 60);
-    print_str(window, point_str, 27, 150);
+    print_str(window, point_str, 27, 110);
 }
 
 /**
@@ -82,6 +81,7 @@ void tetris_initialize_game(Window * window) {
     window->game.y = 0;
     window->game.state = Start;
     window->game.points = 0;
+    window->game.rows_cleared = 0;
 
     // initialize the current tetromino
     tetris_update_current_tetromino(window);
@@ -307,7 +307,7 @@ void tetris_drawEndScreen(Window * window) {
 			float quad_rad;
 			// Happy if we get over 80k :)
 			// Even though that point count may overflow the screen-
-			if (window->game.points < 80000) {
+			if (window->game.points < 9000) {
 				quad_rad = abs((y+100)+0.01*x*x);
 			} else {
 				quad_rad = abs((y+100)-0.01*x*x);
@@ -378,25 +378,6 @@ void tetris_detect_rowCompletion(Window * window) {
         if(rowCompleted[row]) numRowsCompleted++;
     }
 
-    for (int i = 0; i < 4; i++) {
-        int anyRowFlag = 0;
-        // go over board from bottom to top & turn lines that need to be cleared on/off
-        for (int row = BOARD_HEIGHT - 1; row >= 0; row--) {
-            if (rowCompleted[row]) {
-                for (int col = 0; col < BOARD_WIDTH; col++) {
-                    window->game.board[BOARD_WIDTH * row + col] = (i%2) ? 150 : EMPTY_BOARD_CHAR;
-                }
-                anyRowFlag = 1;
-            }
-        }
-
-        if (!anyRowFlag) {
-            break;
-        }
-
-        drawRect(window, BOARD_X, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT, 1, 1, window->game.board);
-    }
-
     // go over board from bottom to top & delete the lines that need to be cleared
     int row_currently_drawn = BOARD_HEIGHT - 1;
     for (int row = BOARD_HEIGHT - 1; row >= 0; row--) {
@@ -415,6 +396,7 @@ void tetris_detect_rowCompletion(Window * window) {
         row_currently_drawn--;
     }
 
+    window->game.rows_cleared += numRowsCompleted;
     switch(numRowsCompleted) {
     case 1:
     	window->game.points += 40;
@@ -496,18 +478,21 @@ void drawRect_color(Window* window, int x_start, int y_start, int width, int hei
  * @param window window to draw to
  */
 void tetris_drawBackground(Window* window) {
+
+
 	float y_repeat = IMAGE_HEIGHT / 9.0;
 	for (int row = IMAGE_Y; row < IMAGE_HEIGHT + IMAGE_Y; row++) {
-	        for (int col = IMAGE_X; col < IMAGE_WIDTH + IMAGE_X; col++) {
-	        	if (col < IMAGE_X + BOARD_X + BOARD_WIDTH * 2 + 5) {
-	        		window->frame[row][col] = 125;
-	        	} else {
+		for (int col = IMAGE_X; col < IMAGE_WIDTH + IMAGE_X; col++) {
+			if (col < IMAGE_X + BOARD_X + BOARD_WIDTH * 2 + 5) {
+				window->frame[row][col] = 125;
+			} else {
 
-		        	float sin_diff = fabs(9.0 * arm_sin_f32(0.9 * col) + 9.0 - fmod(row, y_repeat) );
-		        	window->frame[row][col] = (sin_diff < 4.0) ? 20 : 70;
-		        	if( (col+2) % 7 == 0) window->frame[row][col] = 20;
-	        	}
+				float sin_diff = fabs(9.0 * arm_sin_f32(0.9 * col) + 9.0 - fmod(row, y_repeat) );
+				window->frame[row][col] = (sin_diff < 4.0) ? 20 : 70;
+				if( (col+2) % 7 == 0) window->frame[row][col] = 20;
+			}
 
-	        }
-	    }
+		}
+	 }
+	print_str(window, "Points:", 27, 20); // I make the points PART of the background
  }

@@ -39,7 +39,7 @@
 /* USER CODE BEGIN PD */
 #define horiz_size 100
 #define vert_size 449
-#define FALL_INIT 1000
+#define FALL_INIT 800
 
 #define INPUT_BUFFER_SIZE 5
 
@@ -77,14 +77,14 @@ osThreadId_t frameTaskHandle;
 const osThreadAttr_t frameTask_attributes = {
   .name = "frameTask",
   .stack_size = 500 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t) osPriorityLow,
 };
 /* Definitions for soundTask */
 osThreadId_t soundTaskHandle;
 const osThreadAttr_t soundTask_attributes = {
   .name = "soundTask",
   .stack_size = 128 * 4,
-  .priority = (osPriority_t) osPriorityNormal,
+  .priority = (osPriority_t) osPriorityLow,
 };
 /* USER CODE BEGIN PV */
 
@@ -247,8 +247,6 @@ void game_playing(Window* window, game_input_t event) {
     	window->game.state = Paused;
     	game_paused(window, INPUT_ERROR);
     } else {
-    	// Draw background before anything
-    	tetris_drawBackground(window);
         switch (event) {
             // move left = 1
             case LEFT:
@@ -295,7 +293,8 @@ void game_playing(Window* window, game_input_t event) {
             // Attempt at next tetromino
             //drawRect(window, 2*BOARD_X + BOARD_WIDTH, BOARD_Y+BOARD_HEIGHT, 4, 4, HORIZ_SCALE, VERT_SCALE, window->game.nextTetromino);
             tetris_write_points(window);
-            fall_rate = (int) (FALL_INIT - 100 * exp(-0.0002 * window->game.points) + 100);
+            fall_rate = (int) FALL_INIT - sqrt(1000 * window->game.rows_cleared);
+            fall_rate = (fall_rate < 1) ? 1 : fall_rate;
         }
     }
 
@@ -310,6 +309,10 @@ void game_playing(Window* window, game_input_t event) {
 void game_paused(Window* window, game_input_t event) {
     if (event == TOGGLEPAUSE) {
     	window->game.state = Playing;
+    	// Draw background before anything (in both frames)
+    	tetris_drawBackground(window);
+    	swap_buffer(window);
+    	tetris_drawBackground(window);
     	game_playing(window, INPUT_ERROR);
     } else {
         // draw game board
@@ -327,6 +330,10 @@ void game_paused(Window* window, game_input_t event) {
 void game_start(Window* window, game_input_t event) {
     if (event == TOGGLEPAUSE) {
     	window->game.state = Playing;
+    	// Draw background before anything (in both frames)
+    	tetris_drawBackground(window);
+    	swap_buffer(window);
+    	tetris_drawBackground(window);
     	game_playing(window, INPUT_ERROR);
     } else {
         // draw game board
@@ -523,7 +530,7 @@ void SystemClock_Config(void)
 
   /** Configure the main internal regulator output voltage
   */
-  if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1) != HAL_OK)
+  if (HAL_PWREx_ControlVoltageScaling(PWR_REGULATOR_VOLTAGE_SCALE1_BOOST) != HAL_OK)
   {
     Error_Handler();
   }
@@ -537,7 +544,7 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_MSI;
   RCC_OscInitStruct.PLL.PLLM = 1;
-  RCC_OscInitStruct.PLL.PLLN = 40;
+  RCC_OscInitStruct.PLL.PLLN = 60;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
   RCC_OscInitStruct.PLL.PLLQ = RCC_PLLQ_DIV2;
   RCC_OscInitStruct.PLL.PLLR = RCC_PLLR_DIV2;
@@ -551,10 +558,10 @@ void SystemClock_Config(void)
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_3) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_5) != HAL_OK)
   {
     Error_Handler();
   }
@@ -762,7 +769,7 @@ static void MX_TIM4_Init(void)
 
   /* USER CODE END TIM4_Init 1 */
   htim4.Instance = TIM4;
-  htim4.Init.Prescaler = 7;
+  htim4.Init.Prescaler = 12;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim4.Init.Period = 2;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -809,7 +816,7 @@ static void MX_TIM15_Init(void)
   htim15.Instance = TIM15;
   htim15.Init.Prescaler = 0;
   htim15.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim15.Init.Period = 9999;
+  htim15.Init.Period = 14999;
   htim15.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim15.Init.RepetitionCounter = 0;
   htim15.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
