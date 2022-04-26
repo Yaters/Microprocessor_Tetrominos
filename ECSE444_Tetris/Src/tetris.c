@@ -47,16 +47,20 @@ uint8_t tetromino_collision[]={ 10, 10, 10, 10,
 								10, 10, 10, 10,
 								10, 10, 10, 10};
 
+extern RNG_HandleTypeDef hrng;
+uint32_t rand_block;
 
 /**
- * @brief Write points to the screen while playing.
+ * @brief Write points and next tetromino to the screen while playing.
  *
  * @param window window
  */
-void tetris_write_points(Window* window) {
+void tetris_write_game_data(Window* window) {
     char point_str[10];
     sprintf(point_str, "%lu", window->game.points);
-    print_str(window, point_str, 27, 110);
+    print_str(window, point_str, 27, 97);
+    drawRect_color(window, 14, 21, 6, 5, HORIZ_SCALE, VERT_SCALE, (uint8_t) 100);
+    drawRect(window, 15, 22, 4, 4, HORIZ_SCALE, VERT_SCALE, window->game.nextTetromino);
 }
 
 /**
@@ -69,9 +73,6 @@ void tetris_initialize_game(Window * window) {
     for (int i = 0; i < BOARD_WIDTH * BOARD_HEIGHT; i++) {
         window->game.board[i] = EMPTY_BOARD_CHAR;
     }
-
-    // seed random val
-    srand((unsigned) HAL_GetTick());
 
     // initialize game state (tetromino, rotation, next tetromino, x, y, game state)
     window->game.rotation = 0;
@@ -93,7 +94,8 @@ void tetris_initialize_game(Window * window) {
  * @return const char* pointer to random tetromino piece
  */
 const uint8_t * tetris_get_next_tetromino() {
-    switch (rand() % 7) {
+	HAL_RNG_GenerateRandomNumber(&hrng, &rand_block);
+    switch (rand_block % 7) {
         case 0:
             return tetromino_I;
         break;
@@ -357,6 +359,8 @@ void tetris_finished_tetromino(Window * window) {
     window->game.tetromino = window->game.nextTetromino;
     window->game.nextTetromino = tetris_get_next_tetromino(window);
     tetris_update_current_tetromino(window);
+    // Write next tetromino and points to the screen in both buffers
+
 }
 
 /**
@@ -494,5 +498,7 @@ void tetris_drawBackground(Window* window) {
 
 		}
 	 }
-	print_str(window, "Points:", 27, 20); // I make the points PART of the background
+	print_str(window, "Points:", 27, 8); // I make the points PART of the background
+	print_str(window, "Next:", 27, 187); // I make the next tetromino PART of the background
+    tetris_write_game_data(window);
  }

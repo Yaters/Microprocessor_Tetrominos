@@ -8,6 +8,7 @@
 
 #define ARM_MATH_CM4
 #include "arm_math.h"
+#include "main.h"
 
 #define BOARD_X 2
 #define BOARD_Y 2
@@ -24,8 +25,12 @@
 #define IMAGE_X 2
 #define IMAGE_Y 70
 
+#define HORIZ_SCALE 2
+#define VERT_SCALE 13
+
 // enums
 enum consoleState{Start, Playing, Paused, Ended};
+
 
 // structs
 typedef struct Game {
@@ -77,7 +82,7 @@ extern void print_str(Window* window, char* buffer, int x, int y);
 // Window Functions
 
 // function prototypes
-void tetris_write_points(Window* window);
+void tetris_write_game_data(Window* window);
 void tetris_drawBackground(Window* window);
 void tetris_drawEndScreen(Window * window);
 void drawRect(Window* window, int x_start, int y_start, int width, int height, int scaling_h, int scaling_v, uint8_t* data);

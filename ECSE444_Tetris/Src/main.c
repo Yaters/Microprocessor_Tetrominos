@@ -43,11 +43,9 @@
 
 #define INPUT_BUFFER_SIZE 5
 
-#define HORIZ_SCALE 2
-#define VERT_SCALE 13
 
 // Sound variables
-#define THEME_SOUND_SIZE 101600UL
+#define THEME_SOUND_SIZE 101600
 #define SHIFT_SOUND_SIZE 0
 #define ROT_SOUND_SIZE 0
 /* USER CODE END PD */
@@ -290,9 +288,8 @@ void game_playing(Window* window, game_input_t event) {
         if (window->game.state == Playing ) {
             drawRect(window, BOARD_X, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT, HORIZ_SCALE, VERT_SCALE, window->game.board);
             drawRect(window, BOARD_X + window->game.x, BOARD_Y + window->game.y, 4, 4, HORIZ_SCALE, VERT_SCALE, tetromino_current);
-            // Attempt at next tetromino
-            //drawRect(window, 2*BOARD_X + BOARD_WIDTH, BOARD_Y+BOARD_HEIGHT, 4, 4, HORIZ_SCALE, VERT_SCALE, window->game.nextTetromino);
-            tetris_write_points(window);
+            // Shouldn't take too much time - though we could move it to finalize
+            tetris_write_game_data(window);
             fall_rate = (int) FALL_INIT - sqrt(1000 * window->game.rows_cleared);
             fall_rate = (fall_rate < 1) ? 1 : fall_rate;
         }
@@ -334,6 +331,7 @@ void game_start(Window* window, game_input_t event) {
     	tetris_drawBackground(window);
     	swap_buffer(window);
     	tetris_drawBackground(window);
+    	swap_buffer(window);
     	game_playing(window, INPUT_ERROR);
     } else {
         // draw game board
@@ -449,7 +447,6 @@ int main(void)
   MX_TIM15_Init();
   MX_RNG_Init();
   /* USER CODE BEGIN 2 */
-
   create_window(&window);
 
   // Fill the frame buffer
@@ -467,6 +464,9 @@ int main(void)
   HAL_DAC_Start(&hdac1, DAC_CHANNEL_2);
   HAL_Delay(100);
   HAL_TIM_Base_Start_IT(&htim15);	// start slave first.
+
+
+
 
   /* USER CODE END 2 */
 
