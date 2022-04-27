@@ -77,7 +77,11 @@ void tetris_initialize_game(Window * window) {
     // initialize game state (tetromino, rotation, next tetromino, x, y, game state)
     window->game.rotation = 0;
     window->game.tetromino = tetris_get_next_tetromino();
-    window->game.nextTetromino = tetris_get_next_tetromino();
+    const uint8_t* next = tetris_get_next_tetromino();
+	#ifdef TETRIS_LESS_RANDOM_FLAG
+	if (next == window->game.tetromino) next = tetris_get_next_tetromino();
+	#endif
+    window->game.nextTetromino = next;
     window->game.x = 3;
     window->game.y = 0;
     window->game.state = Start;
@@ -357,7 +361,11 @@ void tetris_finished_tetromino(Window * window) {
     window->game.x = 3;
     window->game.rotation = 0;
     window->game.tetromino = window->game.nextTetromino;
-    window->game.nextTetromino = tetris_get_next_tetromino(window);
+    const uint8_t* next = tetris_get_next_tetromino();
+    #ifdef TETRIS_LESS_RANDOM_FLAG
+    if (next == window->game.tetromino) next = tetris_get_next_tetromino();
+	#endif
+    window->game.nextTetromino = next;
     tetris_update_current_tetromino(window);
     // Write next tetromino and points to the screen in both buffers
 
@@ -432,7 +440,7 @@ void tetris_detect_rowCompletion(Window * window) {
  * @param scaling_v scaling factor applied to rectangle (vertical)
  * @param data data to write to screen
  */
-void drawRect(Window* window, int x_start, int y_start, int width, int height, int scaling_h, int scaling_v, uint8_t* data) {
+void drawRect(Window* window, int x_start, int y_start, int width, int height, int scaling_h, int scaling_v, const uint8_t* data) {
 	uint8_t** buff = window->frame;
 
     int indexRow = 0, indexCol;

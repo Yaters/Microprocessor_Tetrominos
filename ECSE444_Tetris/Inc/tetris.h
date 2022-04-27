@@ -28,6 +28,8 @@
 #define HORIZ_SCALE 2
 #define VERT_SCALE 13
 
+#define TETRIS_LESS_RANDOM_FLAG 0
+
 // enums
 enum consoleState{Start, Playing, Paused, Ended};
 
@@ -85,7 +87,7 @@ extern void print_str(Window* window, char* buffer, int x, int y);
 void tetris_write_game_data(Window* window);
 void tetris_drawBackground(Window* window);
 void tetris_drawEndScreen(Window * window);
-void drawRect(Window* window, int x_start, int y_start, int width, int height, int scaling_h, int scaling_v, uint8_t* data);
+void drawRect(Window* window, int x_start, int y_start, int width, int height, int scaling_h, int scaling_v, const uint8_t* data);
 void drawRect_color(Window* window, int x_start, int y_start, int width, int height, int scaling_h, int scaling_v, uint8_t color);
 void refreshScreen(Window * window);
 
