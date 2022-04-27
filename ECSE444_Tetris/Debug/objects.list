@@ -32,7 +32,7 @@
 "./Middlewares/Third_Party/FreeRTOS/Source/portable/GCC/ARM_CM4F/port.o"
 "./Middlewares/Third_Party/FreeRTOS/Source/portable/MemMang/heap_4.o"
 "./Src/freertos.o"
-"./Src/graphics.o"
+"./Src/game_logic.o"
 "./Src/main.o"
 "./Src/stm32l4xx_hal_msp.o"
 "./Src/stm32l4xx_hal_timebase_tim.o"

@@ -6,7 +6,7 @@
 # Add inputs and outputs from these tool invocations to the build variables 
 C_SRCS += \
 ../Src/freertos.c \
-../Src/graphics.c \
+../Src/game_logic.c \
 ../Src/main.c \
 ../Src/stm32l4xx_hal_msp.c \
 ../Src/stm32l4xx_hal_timebase_tim.c \
@@ -19,7 +19,7 @@ C_SRCS += \
 
 OBJS += \
 ./Src/freertos.o \
-./Src/graphics.o \
+./Src/game_logic.o \
 ./Src/main.o \
 ./Src/stm32l4xx_hal_msp.o \
 ./Src/stm32l4xx_hal_timebase_tim.o \
@@ -32,7 +32,7 @@ OBJS += \
 
 C_DEPS += \
 ./Src/freertos.d \
-./Src/graphics.d \
+./Src/game_logic.d \
 ./Src/main.d \
 ./Src/stm32l4xx_hal_msp.d \
 ./Src/stm32l4xx_hal_timebase_tim.d \
@@ -51,7 +51,7 @@ Src/%.o: ../Src/%.c Src/subdir.mk
 clean: clean-Src
 
 clean-Src:
-	-$(RM) ./Src/freertos.d ./Src/freertos.o ./Src/graphics.d ./Src/graphics.o ./Src/main.d ./Src/main.o ./Src/stm32l4xx_hal_msp.d ./Src/stm32l4xx_hal_msp.o ./Src/stm32l4xx_hal_timebase_tim.d ./Src/stm32l4xx_hal_timebase_tim.o ./Src/stm32l4xx_it.d ./Src/stm32l4xx_it.o ./Src/syscalls.d ./Src/syscalls.o ./Src/sysmem.d ./Src/sysmem.o ./Src/system_stm32l4xx.d ./Src/system_stm32l4xx.o ./Src/tetris.d ./Src/tetris.o ./Src/tetristhemequiet.d ./Src/tetristhemequiet.o
+	-$(RM) ./Src/freertos.d ./Src/freertos.o ./Src/game_logic.d ./Src/game_logic.o ./Src/main.d ./Src/main.o ./Src/stm32l4xx_hal_msp.d ./Src/stm32l4xx_hal_msp.o ./Src/stm32l4xx_hal_timebase_tim.d ./Src/stm32l4xx_hal_timebase_tim.o ./Src/stm32l4xx_it.d ./Src/stm32l4xx_it.o ./Src/syscalls.d ./Src/syscalls.o ./Src/sysmem.d ./Src/sysmem.o ./Src/system_stm32l4xx.d ./Src/system_stm32l4xx.o ./Src/tetris.d ./Src/tetris.o ./Src/tetristhemequiet.d ./Src/tetristhemequiet.o
 
 .PHONY: clean-Src
 

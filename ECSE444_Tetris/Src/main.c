@@ -24,9 +24,8 @@
 /* USER CODE BEGIN Includes */
 #include <stdlib.h>
 #include <stdio.h>
-#include "fontlib.h"
-#include "graphics.h"
-#include "tetris.h"
+#include <tetris.h>
+
 #include "tetristhemequiet.c"
 /* USER CODE END Includes */
 
@@ -37,11 +36,7 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define horiz_size 100
-#define vert_size 449
-#define FALL_INIT 800
-
-#define INPUT_BUFFER_SIZE 5
+#define INPUT_BUFFER_SIZE 5	// max number of user inputs that can be queues
 
 
 // Sound variables
@@ -95,13 +90,10 @@ int buffer_push = 0; // pop = push then overflow or empty
 int fall_rate = FALL_INIT;
 
 int vert_count = 0;
-static const char empty[80] =
-		"                                                                              \n\0";
-
-static char input_str_buf[80] =
-		"                                                                              \n\0";
 char in_buf[2] = "hi";
 
+
+// Tetris game window variable
 Window window;
 
 
@@ -110,10 +102,11 @@ uint16_t *tetris_theme = (uint16_t*) _actetristhemequiet;
 uint16_t *rotate_sound = (uint16_t*) _actetristhemequiet;
 uint16_t *shift_sound = (uint16_t*) _actetristhemequiet;
 
-// Normal playing (not special effect
+// Normal playing (not special effect)
 uint16_t *full_snd_data;
 unsigned long int full_snd_data_size;
 unsigned long int full_snd_data_offset;
+
 // Currently playing
 uint16_t *snd_wave_data;
 unsigned long int snd_data_size;
@@ -139,7 +132,7 @@ void soundController(void *argument);
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim);
 void swap_buffer();
 void init_buffer(uint8_t* tmp_buffer, uint8_t* tmp2_buffer);
-void print_str(Window* window, char* buffer, int x, int y);
+void draw_str(Window* window, char* buffer, int x, int y);
 void togglePause();
 void _print();
 void clear();
@@ -159,45 +152,6 @@ extern uint8_t tetromino_current[];
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void _print() {
-	HAL_UART_Transmit(&huart1, (uint8_t*) input_str_buf, 80, 0xFFFF);
-}
-
-void clear() {
-	sprintf(input_str_buf, empty);
-//	_print();
-}
-
-void print_gameInput(game_input_t input) {
-	// here is where we handle input. Right now this is just an inefficient nested switchcase
-	clear();
-//	sprintf(buf, input);
-	//swap_buffer();
-	switch (input) {
-	case LEFT:
-		sprintf(input_str_buf, "Input: Left");
-		break;
-	case RIGHT:
-		sprintf(input_str_buf, "Input: Right");
-		break;
-	case DOWN:
-		sprintf(input_str_buf, "Input: Down");
-		break;
-	case CW:
-		sprintf(input_str_buf, "Input: Clockwise");
-		break;
-	case CCW:
-		sprintf(input_str_buf, "Input: Counterclockwise");
-		break;
-	case TOGGLEPAUSE:
-		sprintf(input_str_buf, "Input: Toggle Pause/Resume");
-	default:
-		sprintf(input_str_buf, "INPUT ERROR");
-
-	}
-	_print();
-}
-
 
 // create window, as well as initializes tetris game
 void create_window(Window * window) {
@@ -205,25 +159,28 @@ void create_window(Window * window) {
     window->width = IMAGE_WIDTH;
     window->height = IMAGE_HEIGHT;
 
-    window->frame = (uint8_t**) malloc(sizeof(uint8_t*) * vert_size);
-    window->true  = (uint8_t**) malloc(sizeof(uint8_t*) * vert_size);
+    window->frame = (uint8_t**) malloc(sizeof(uint8_t*) * FRAME_HEIGHT);
+    window->true  = (uint8_t**) malloc(sizeof(uint8_t*) * FRAME_HEIGHT);
 
     // Fill image buffers with default value
-    for(int i = 0; i < vert_size; i++) {
+    for(int i = 0; i < FRAME_HEIGHT; i++) {
 		// Point to place in continuous mem location
-    	window->frame[i] = window->frameBuff + i*horiz_size;
-    	window->true[i]  = window->trueBuff  + i*horiz_size;
-		for (int j = 0; j < horiz_size; j++) {
+    	window->frame[i] = window->frameBuff + i*FRAME_WIDTH;
+    	window->true[i]  = window->trueBuff  + i*FRAME_WIDTH;
+		for (int j = 0; j < FRAME_WIDTH; j++) {
 			window->frame[i][j] = 0;
 			window->true[i][j] = 0;
 		}
     }
 
     // initialize tetris game board
-    //HAL_RNG_GenerateRandomNumber(&hRNG1, "ABC");
     tetris_initialize_game(window);
 }
 
+/**
+ * Stops currently playing track to play a sound effect. Plays sound effect and returns to previous music
+ * Size of sfx currently 0 because we have no sfxs
+ */
 void triggerSoundEffect(uint16_t* effect_data, unsigned long int effect_size) {
 	// Stop DAC, change music source, start again
 	playing_snd = 0;
@@ -280,6 +237,7 @@ void game_playing(Window* window, game_input_t event) {
             break;
 
             default:
+            	// never triggered
                 //tetris_move_down(window);
             break;
         }
@@ -289,7 +247,7 @@ void game_playing(Window* window, game_input_t event) {
             drawRect(window, BOARD_X, BOARD_Y, BOARD_WIDTH, BOARD_HEIGHT, HORIZ_SCALE, VERT_SCALE, window->game.board);
             drawRect(window, BOARD_X + window->game.x, BOARD_Y + window->game.y, 4, 4, HORIZ_SCALE, VERT_SCALE, tetromino_current);
             // Shouldn't take too much time - though we could move it to finalize
-            tetris_write_game_data(window);
+            tetris_draw_scoreboard(window);
             fall_rate = (int) FALL_INIT - sqrt(1000 * window->game.rows_cleared);
             fall_rate = (fall_rate < 1) ? 1 : fall_rate;
         }
@@ -314,15 +272,16 @@ void game_paused(Window* window, game_input_t event) {
     } else {
         // draw game board
         drawRect_color(window, 0, 0, window->width, window->height, 4, 10, 100);
-        print_str(window, "Press Space", 2, 10);
-        print_str(window, "To Continue", 2, 70);
+        draw_str(window, "Press Space", 2, 10);
+        draw_str(window, "To Continue", 2, 70);
     }
 }
 
 /**
- * @brief Use when the tetris game is paused.
+ * @brief Moves from the starting screen to the playing state
  *
  * @param window window that is being used
+ * @param event user input
  */
 void game_start(Window* window, game_input_t event) {
     if (event == TOGGLEPAUSE) {
@@ -336,17 +295,18 @@ void game_start(Window* window, game_input_t event) {
     } else {
         // draw game board
         drawRect_color(window, 0, 0, window->width, window->height, 4, 10, 100);
-        print_str(window, "Welcome To", 2, 10);
-        print_str(window, "Tetris!", 20, 110);
-        print_str(window, "Press Space", 2, 210);
-        print_str(window, "To Continue", 2, 270);
+        draw_str(window, "Welcome To", 2, 10);
+        draw_str(window, "Tetris!", 20, 110);
+        draw_str(window, "Press Space", 2, 210);
+        draw_str(window, "To Continue", 2, 270);
     }
 }
 
 /**
- * @brief Use when the tetris game is paused.
+ * @brief Use when the tetris game is lost.
  *
  * @param window window that is being used
+ * @param event user input
  */
 void game_ended(Window* window, game_input_t event) {
 	if (event == TOGGLEPAUSE) {
@@ -356,9 +316,6 @@ void game_ended(Window* window, game_input_t event) {
 	} else {
 		tetris_drawEndScreen(window);
 	}
-
-
-
 }
 
 /**
@@ -371,40 +328,12 @@ void swap_buffer(Window * window) {
 	uint8_t** tmp = window->true;
 	window->true = window->frame;
 	window->frame = tmp;
-//	clear_buffer();
+
 	// Change DMA memory address
 	hdac1.DMA_Handle1->Instance->CMAR = (uint32_t) window->true[0];
 }
 
-void print_str(Window * window, char* buffer, int x, int y) {
 
-	x += 3; // Avoid back porch
-	y += 70;
-
-	char cur_char = buffer[0];
-	if(cur_char >= 97) cur_char -= 32;
-	int i = 0;
-	while(cur_char != '\0') {
-		char* bitmap = font_map[cur_char - 32]; // 32 = ' '
-		// y-value precursor
-		for(int h = 0; h < 70; h++) {
-			for (int w = 0; w < 7; w++) {
-				// Pre- and Post- empty space on x & y
-				if (h < 10 || w == 0 || h >= 60 || w == 6) {
-					window->frame[y+h][x+w] = 100;
-					continue;
-				}
-				int array_index = ((h-10)/10) * 5 + (w-1); // h/10 = floor division, to stretch
-				window->frame[y+h][x+w] = bitmap[array_index] ? 170 : 100;
-			}
-		}
-		x += 7; // 1 pre, 5 char, 1 post
-		i++;
-		cur_char = buffer[i];
-		//'a' -> 'A' for example
-		if(cur_char >= 97) cur_char -= 32;
-	}
-}
 /* USER CODE END 0 */
 
 /**
@@ -449,13 +378,11 @@ int main(void)
   /* USER CODE BEGIN 2 */
   create_window(&window);
 
-  // Fill the frame buffer
-  //init_buffer(window.imgBuff1, window.imgBuff2);
   HAL_TIM_Base_Start_IT(&htim1);	// start slave first.
   HAL_Delay(100);
   HAL_TIM_PWM_Start(&htim2, TIM_CHANNEL_4);	// start slave first.
   HAL_Delay(100);
-  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *) window.true[0], horiz_size*vert_size, DAC_ALIGN_8B_R);
+  HAL_DAC_Start_DMA(&hdac1, DAC_CHANNEL_1, (uint32_t *) window.true[0], FRAME_WIDTH*FRAME_HEIGHT, DAC_ALIGN_8B_R);
   HAL_Delay(100);
   HAL_TIM_Base_Start(&htim4);	// start master timer.
   HAL_Delay(100);
@@ -464,8 +391,6 @@ int main(void)
   HAL_DAC_Start(&hdac1, DAC_CHANNEL_2);
   HAL_Delay(100);
   HAL_TIM_Base_Start_IT(&htim15);	// start slave first.
-
-
 
 
   /* USER CODE END 2 */
@@ -939,12 +864,18 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+/**
+ * Push user input into the input queue
+ */
 void push_input_buffer(game_input_t input) {
 	// Can't lock the queue, don't need one since this is called by an interrupt
 	input_buffer[buffer_push] = input;
 	buffer_push = (buffer_push + 1) % INPUT_BUFFER_SIZE;
 }
 
+/**
+ * Read from the input queue (private function)
+ */
 game_input_t pop_input_buffer() {
 	if(buffer_pop == buffer_push) {
 		return INPUT_ERROR;
@@ -955,7 +886,9 @@ game_input_t pop_input_buffer() {
 }
 
 
-
+/**
+ * Fetch an instruction from input queue (used for game logic)
+ */
 game_input_t process_user_input(Window * window) {
     game_input_t c = pop_input_buffer();
     while(c == INPUT_ERROR) c = pop_input_buffer();
@@ -1013,6 +946,7 @@ void updateGameLogic(void *argument)
 
 		switch (window.game.state) {
 		  case Start:
+			  // reset the Game
 			  game_start(&window, event);
 		  break;
 		  case Playing:
@@ -1021,9 +955,11 @@ void updateGameLogic(void *argument)
 
 		  break;
 		  case Paused:
+			  // pause the game
 			  game_paused(&window, event);
 		  break;
 		  case Ended:
+			  // go to smile/frown face
 			  game_ended(&window, event);
 		  break;
 		}
